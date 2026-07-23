@@ -4,14 +4,16 @@ An interactive evidence intelligence platform built on Afrobarometer's Round 10
 (2024) Ghana survey microdata — built as a technical proposal prototype, not
 an official Afrobarometer product.
 
-**Live locally:** open `site/index.html` in any modern browser, or serve the
-`site/` folder with any static file server (no build step, no server-side
+**Live locally:** open `index.html` in any modern browser, or serve the
+repo root with any static file server (no build step, no server-side
 code, everything runs client-side):
 
 ```bash
-cd site && python3 -m http.server 8000
+python3 -m http.server 8000
 # then open http://localhost:8000
 ```
+
+**Live demo:** https://fadl462.github.io/afrobarometer-insight-platform/
 
 ## What this is
 
@@ -58,7 +60,7 @@ codebook.
   Round 10 codebook, prepared by Alfred Torsu, June 2025) — not the Round 9
   merge codebook, which uses different question numbering for several items.
 - `etl.py` is the one-time transform from the raw labeled CSV export into
-  `site/data/{records,indicators,meta,executive}.json`. It is included in
+  `data/{records,indicators,meta,executive}.json`. It is included in
   this repo for transparency/reproducibility; it is not run in the browser.
 - All percentages use the `withinwt_hh` weight Afrobarometer supplies to
   correct for individual selection probability. "Don't know", "Refused", and
@@ -76,5 +78,5 @@ needed to power this specific demo.
 ## Stack
 
 Vanilla HTML/CSS/JS, no build step. Chart.js and all web fonts are vendored
-locally under `site/js/vendor/` and `site/fonts/` so the demo runs fully
+locally under `js/vendor/` and `fonts/` so the demo runs fully
 offline (no CDN dependency at presentation time).

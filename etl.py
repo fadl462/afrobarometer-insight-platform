@@ -7,8 +7,8 @@ Labels verified against: AB_R10.Codebook_Ghana_30June25.pdf (Afrobarometer, offi
 """
 import csv, json, os, re, collections
 
-SRC = "/home/claude/data/GHA_R10.Data_03Oct24.wtd.final.release_updated.13Feb25.csv"
-OUT_DIR = "/home/claude/site/data"
+SRC = "GHA_R10.Data_03Oct24.wtd.final.release_updated.13Feb25.csv"  # place the raw Afrobarometer CSV export alongside this script
+OUT_DIR = "data"
 os.makedirs(OUT_DIR, exist_ok=True)
 
 NON_SUBSTANTIVE = {
