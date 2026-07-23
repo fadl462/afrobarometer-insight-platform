@@ -1,0 +1,37 @@
+{
+  "country": "Ghana",
+  "round": 10,
+  "year": 2024,
+  "fieldwork_dates": "5–21 August 2024",
+  "fieldwork_partner": "Center for Democratic Development (CDD-Ghana)",
+  "sample_size": 2400,
+  "margin_of_error": "+/-2 percentage points at 95% confidence",
+  "languages": [
+    "Akan",
+    "English",
+    "Ewe",
+    "Ga",
+    "Dagbani",
+    "Dagaari"
+  ],
+  "regions": [
+    "Ahafo",
+    "Ashanti",
+    "Bono",
+    "Bono East",
+    "Central",
+    "Eastern",
+    "Greater Accra",
+    "North East",
+    "Northern",
+    "Oti",
+    "Savannah",
+    "Upper East",
+    "Upper West",
+    "Volta",
+    "Western",
+    "Western North"
+  ],
+  "citation": "Afrobarometer Data, Ghana, Round 10, 2024, available at http://www.afrobarometer.org.",
+  "codebook_source": "AB_R10.Codebook_Ghana_30June25.pdf, Afrobarometer, prepared by Alfred Torsu, June 2025"
+}

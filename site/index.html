@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Afrobarometer Insight Platform — Ghana Round 10</title>
+<meta name="description" content="An interactive evidence intelligence platform built on Afrobarometer Round 10 survey data for Ghana.">
+<link rel="icon" href="assets/afrobarometer-logo.png">
+<link rel="stylesheet" href="css/style.css">
+<script src="js/vendor/chart.umd.js"></script>
+</head>
+<body>
+
+<div class="app-shell">
+
+  <!-- ============================= SIDEBAR ============================= -->
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <img src="assets/afrobarometer-logo.png" alt="Afrobarometer">
+      <div>
+        <div class="brand-name">Insight Platform</div>
+        <div class="brand-tag">Prototype · Ghana R10</div>
+      </div>
+    </div>
+
+    <nav class="main-nav" id="mainNav">
+      <div class="nav-group-label">Overview</div>
+      <button class="nav-item active" data-view="executive"><span class="dot"></span>Executive Briefing</button>
+      <button class="nav-item" data-view="country"><span class="dot"></span>Country Intelligence</button>
+
+      <div class="nav-group-label">Explore</div>
+      <button class="nav-item" data-view="indicator"><span class="dot"></span>Indicator Explorer</button>
+      <button class="nav-item" data-view="demographic"><span class="dot"></span>Demographic Intelligence</button>
+      <button class="nav-item" data-view="regional"><span class="dot"></span>Regional Intelligence</button>
+      <button class="nav-item" data-view="compare"><span class="dot"></span>Compare Countries</button>
+
+      <div class="nav-group-label">Synthesize</div>
+      <button class="nav-item" data-view="policy"><span class="dot"></span>Policy Insight Centre</button>
+
+      <div class="nav-group-label">Reference</div>
+      <button class="nav-item" data-view="methodology"><span class="dot"></span>Methodology &amp; Downloads</button>
+    </nav>
+
+    <div class="sidebar-foot">
+      <div class="theme-toggle">
+        <span>Appearance</span>
+        <button id="themeBtn" type="button">Dark</button>
+      </div>
+      <div class="mini-meta" id="sidebarMeta">Loading survey metadata…</div>
+    </div>
+  </aside>
+
+  <!-- ============================== MAIN ================================ -->
+  <main class="content">
+    <div class="topbar">
+      <button class="hamburger" id="hamburger" aria-label="Toggle navigation">☰</button>
+      <div class="topbar-title" id="topbarTitle">Executive Briefing</div>
+      <div class="topbar-sub" id="topbarSub">Afrobarometer · Round 10 · Ghana · 2024</div>
+    </div>
+
+    <!-- ======================= EXECUTIVE BRIEFING ======================= -->
+    <section class="view active" id="view-executive">
+      <div class="view-head">
+        <div class="view-eyebrow">Landing · Updated live from microdata</div>
+        <h1 class="view-title">What Ghanaians told Afrobarometer, and what deserves attention</h1>
+        <p class="view-desc">This is not a static report — every figure below is computed on request from the Round 10 respondent-level dataset, weighted for national representativeness. Use the modules on the left to interrogate the data by theme, region, or demographic group.</p>
+      </div>
+
+      <div class="grid cols-4" id="execKpis"></div>
+
+      <div class="ticker-wrap"><div class="ticker" id="execTicker"></div></div>
+
+      <div class="grid cols-2 mt-24">
+        <div class="card">
+          <h3>Executive Insights <span class="badge accent">Rule-based, from microdata</span></h3>
+          <div class="finding-list" id="execInsights"></div>
+        </div>
+        <div class="card">
+          <h3>Top problems citizens want government to address</h3>
+          <div class="rank-list" id="execMip"></div>
+          <p class="small faint mt-12">First-mentioned response to the open "most important problem" question, Q46. Respondents could name up to three; ranked here by share naming each as their top concern.</p>
+        </div>
+      </div>
+
+      <div class="grid cols-2 mt-16">
+        <div class="card">
+          <h3>Direction of the country, by region</h3>
+          <div class="chart-box"><canvas id="execRegionChart"></canvas></div>
+        </div>
+        <div class="card">
+          <h3>Trust in institutions — national average</h3>
+          <div class="chart-box"><canvas id="execTrustChart"></canvas></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================= COUNTRY INTELLIGENCE ===================== -->
+    <section class="view" id="view-country">
+      <div class="view-head">
+        <div class="view-eyebrow">Country Intelligence Centre</div>
+        <h1 class="view-title">Ghana — Round 10 country profile</h1>
+        <p class="view-desc">Sample composition, fieldwork details, and a narrative synthesis of where Ghana stands across the survey's major themes. In a multi-country deployment, this module becomes a selector across all fielded countries.</p>
+      </div>
+
+      <div class="grid cols-4" id="countryStatCards"></div>
+
+      <div class="grid cols-2 mt-16">
+        <div class="card">
+          <h3>Sample composition — gender &amp; setting</h3>
+          <div class="chart-box short"><canvas id="countryGenderChart"></canvas></div>
+        </div>
+        <div class="card">
+          <h3>Sample composition — age</h3>
+          <div class="chart-box short"><canvas id="countryAgeChart"></canvas></div>
+        </div>
+      </div>
+
+      <div class="card mt-16">
+        <h3>Narrative brief</h3>
+        <div id="countryNarrative"></div>
+      </div>
+
+      <div class="card mt-16">
+        <h3>Fieldwork &amp; methodology</h3>
+        <div class="methodology-box" id="countryMethodBox"></div>
+      </div>
+    </section>
+
+    <!-- ========================= INDICATOR EXPLORER ===================== -->
+    <section class="view" id="view-indicator">
+      <div class="view-head">
+        <div class="view-eyebrow">The heart of the platform</div>
+        <h1 class="view-title">Indicator Explorer</h1>
+        <p class="view-desc">Choose a theme, then an indicator. Every chart recomputes instantly from the underlying microdata against whatever demographic filters you set below.</p>
+      </div>
+
+      <div class="toolbar">
+        <div class="select-field">
+          <label>Theme</label>
+          <select id="themeSelect"></select>
+        </div>
+        <div class="select-field" style="min-width:320px;">
+          <label>Indicator</label>
+          <select id="indicatorSelect"></select>
+        </div>
+        <div class="spacer"></div>
+        <div class="export-bar">
+          <button class="btn" id="btnExportPng">⬇ PNG</button>
+          <button class="btn" id="btnExportCsv">⬇ CSV</button>
+          <button class="btn" id="btnCite">❝ Citation</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title-row">
+          <div>
+            <div class="badge accent" id="indThemeBadge">Theme</div>
+            <div style="font-family:var(--font-display);font-size:19px;font-weight:600;margin-top:6px;" id="indQTitle">—</div>
+          </div>
+        </div>
+        <p class="small muted" id="indQWording"></p>
+        <div id="indFilterBar" class="toolbar" style="margin-top:14px;margin-bottom:6px;"></div>
+      </div>
+
+      <div class="grid cols-2 mt-16">
+        <div class="card">
+          <h3>Distribution of responses <span class="faint small" id="indDistN"></span></h3>
+          <div class="chart-box tall"><canvas id="indDistChart"></canvas></div>
+        </div>
+        <div class="card">
+          <h3>Regional comparison <span class="faint small" id="indRegionMetric"></span></h3>
+          <div class="chart-box tall"><canvas id="indRegionChart"></canvas></div>
+        </div>
+      </div>
+
+      <div class="grid cols-2 mt-16">
+        <div class="card">
+          <h3>Urban / rural comparison</h3>
+          <div class="chart-box short"><canvas id="indUrbanChart"></canvas></div>
+        </div>
+        <div class="card">
+          <h3>Demographic comparison — gender, age, education</h3>
+          <div class="chart-box tall"><canvas id="indDemoChart"></canvas></div>
+        </div>
+      </div>
+
+      <div class="card mt-16">
+        <h3>Metadata &amp; provenance</h3>
+        <div class="methodology-box" id="indMetaBox"></div>
+      </div>
+    </section>
+
+    <!-- ====================== DEMOGRAPHIC INTELLIGENCE =================== -->
+    <section class="view" id="view-demographic">
+      <div class="view-head">
+        <div class="view-eyebrow">Cross-cut everything by who's answering</div>
+        <h1 class="view-title">Demographic Intelligence</h1>
+        <p class="view-desc">Build a custom respondent segment using any combination of filters, and see how that segment answers the indicator of your choice compared to the national average.</p>
+      </div>
+
+      <div class="grid cols-2">
+        <div class="card">
+          <h3>Build a segment</h3>
+          <div id="demoFilterBar"></div>
+          <div class="hr"></div>
+          <div class="flex between center">
+            <span class="small muted">Segment size</span>
+            <span class="mono" id="demoSegN" style="font-size:20px;font-weight:600;">—</span>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Indicator to compare</h3>
+          <div class="select-field" style="min-width:100%;">
+            <label>Indicator</label>
+            <select id="demoIndicatorSelect"></select>
+          </div>
+          <p class="small muted mt-12" id="demoQWording"></p>
+        </div>
+      </div>
+
+      <div class="grid cols-2 mt-16">
+        <div class="card">
+          <h3>Segment vs. national average</h3>
+          <div class="chart-box tall"><canvas id="demoCompareChart"></canvas></div>
+        </div>
+        <div class="card">
+          <h3>Segment distribution</h3>
+          <div class="chart-box tall"><canvas id="demoDistChart"></canvas></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================= REGIONAL INTELLIGENCE =================== -->
+    <section class="view" id="view-regional">
+      <div class="view-head">
+        <div class="view-eyebrow">Drill from nation → region</div>
+        <h1 class="view-title">Regional Intelligence</h1>
+        <p class="view-desc">Ghana's 16 regions, arranged roughly north (top) to south (bottom) / west (left) to east (right). Select an indicator, then click a region to filter every other module to that region alone.</p>
+      </div>
+
+      <div class="toolbar">
+        <div class="select-field" style="min-width:320px;">
+          <label>Indicator</label>
+          <select id="regionIndicatorSelect"></select>
+        </div>
+        <div class="spacer"></div>
+        <button class="btn" id="btnClearRegion">Clear region selection</button>
+      </div>
+
+      <div class="grid cols-2">
+        <div class="card">
+          <h3>Region map <span class="faint small">(schematic, not to scale)</span></h3>
+          <div class="region-grid" id="regionGrid"></div>
+        </div>
+        <div class="card">
+          <h3>Ranked comparison</h3>
+          <div class="rank-list" id="regionRankList"></div>
+        </div>
+      </div>
+
+      <div class="card mt-16" id="regionDetailCard" style="display:none;">
+        <h3 id="regionDetailTitle">Region detail</h3>
+        <div class="grid cols-3" id="regionDetailStats"></div>
+      </div>
+    </section>
+
+    <!-- ========================= COMPARE COUNTRIES ======================= -->
+    <section class="view" id="view-compare">
+      <div class="view-head">
+        <div class="view-eyebrow">Architecture, ready to scale</div>
+        <h1 class="view-title">Compare Countries</h1>
+        <p class="view-desc">This module is built to place any indicator side-by-side across Afrobarometer's 39-country footprint. This prototype ships with verified Ghana Round 10 microdata only — we do not display placeholder numbers for other countries, since that would misrepresent survey findings.</p>
+      </div>
+
+      <div class="scaffold">
+        <span class="badge accent">Scale-up path</span>
+        <h4>One additional country dataset away</h4>
+        <p>The Indicator Explorer, Regional Intelligence, and Policy Insight engines built for Ghana are country-agnostic — they read from a shared indicator registry and a respondent-level JSON schema. Loading a second country's Round 10 file activates this view automatically, with the same bar charts, radar comparisons, and rankings shown here for Ghana's regions applied across countries instead.</p>
+        <div class="country-chip-row">
+          <span class="country-chip live">Ghana — live</span>
+          <span class="country-chip">Kenya</span>
+          <span class="country-chip">Nigeria</span>
+          <span class="country-chip">South Africa</span>
+          <span class="country-chip">Zambia</span>
+          <span class="country-chip">+ 34 more fielded countries</span>
+        </div>
+      </div>
+
+      <div class="card mt-16">
+        <h3>What this view will show, once populated</h3>
+        <ul style="font-size:13.5px;color:var(--ink-soft);line-height:1.8;padding-left:20px;margin:0;">
+          <li>Grouped bar charts comparing up to 5 countries on any indicator in the registry</li>
+          <li>Radar charts for multi-dimensional profiles (e.g. trust in six institutions at once)</li>
+          <li>A ranked table across all fielded countries, sortable by any indicator</li>
+          <li>Trend lines where a country has multiple rounds merged</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ========================= POLICY INSIGHT CENTRE =================== -->
+    <section class="view" id="view-policy">
+      <div class="view-head">
+        <div class="view-eyebrow">The differentiator</div>
+        <h1 class="view-title">Policy Insight Centre</h1>
+        <p class="view-desc">Instead of a bare statistic, this module compares subgroups on every indicator in the registry and surfaces gaps wide enough to be policy-relevant. The logic is fixed, transparent rules over the weighted data — <b>not</b> generative text — so every sentence below can be traced back to an exact calculation.</p>
+      </div>
+
+      <div class="toolbar">
+        <div class="select-field">
+          <label>Theme filter</label>
+          <select id="policyThemeSelect"><option value="">All themes</option></select>
+        </div>
+        <div class="select-field">
+          <label>Minimum gap to report</label>
+          <select id="policyGapSelect">
+            <option value="8">8 points</option>
+            <option value="12" selected>12 points</option>
+            <option value="18">18 points</option>
+            <option value="25">25 points</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="finding-list" id="policyFindings"></div>
+
+      <div class="card mt-16">
+        <h3>How this works</h3>
+        <p class="small muted" style="line-height:1.7;">For every indicator with a defined "favourable" response set, the engine computes the weighted favourable percentage within each demographic split (gender, urban/rural, age band, education level, lived-poverty band) and flags any pair of subgroups whose gap exceeds the threshold selected above. This mirrors the logic Afrobarometer analysts already use in dispatches and scorecards — the platform simply runs it exhaustively and instantly across the whole registry instead of one indicator at a time.</p>
+      </div>
+    </section>
+
+    <!-- ========================= METHODOLOGY / DOWNLOADS ================== -->
+    <section class="view" id="view-methodology">
+      <div class="view-head">
+        <div class="view-eyebrow">Reference</div>
+        <h1 class="view-title">Methodology, citation &amp; downloads</h1>
+        <p class="view-desc">Every figure on this platform should be traceable back to source. This page collects the details a researcher or journalist would need to cite or replicate a finding.</p>
+      </div>
+
+      <div class="grid cols-2">
+        <div class="card">
+          <h3>Sampling &amp; fieldwork</h3>
+          <div class="methodology-box" id="methodSamplingBox"></div>
+        </div>
+        <div class="card">
+          <h3>Citation</h3>
+          <p class="small" id="methodCitation" style="font-family:var(--font-mono);background:var(--paper-alt);padding:12px;border-radius:8px;line-height:1.6;"></p>
+          <button class="btn primary mt-12" id="btnCopyCitation">Copy citation</button>
+        </div>
+      </div>
+
+      <div class="card mt-16">
+        <h3>Non-response &amp; weighting conventions</h3>
+        <p class="small muted" style="line-height:1.7;">
+          All percentages shown are computed on valid, substantive responses only, using the <code>withinwt_hh</code> weight that
+          Afrobarometer supplies to correct for individual selection probabilities (region, gender, urban/rural distribution, household and enumeration-area size).
+          "Don't know", "Refused", and "Not applicable" responses are excluded from percentage bases and are never silently
+          recoded as a substantive answer.
+        </p>
+      </div>
+
+      <div class="card mt-16">
+        <h3>Downloads</h3>
+        <div class="flex gap-12 wrap">
+          <button class="btn" id="dlIndicators">⬇ Indicator registry (JSON)</button>
+          <button class="btn" id="dlCodebookNote">⬇ Codebook reference note (TXT)</button>
+        </div>
+      </div>
+
+      <div class="footer-note">
+        Afrobarometer data are protected by copyright. This prototype is a technical demonstration built for a proposal to
+        Afrobarometer and is not an official Afrobarometer product. All statistics derive from the Ghana Round 10 (2024)
+        dataset and codebook as released by Afrobarometer; value labels and question wording were cross-checked against
+        <span class="mono">AB_R10.Codebook_Ghana_30June25.pdf</span> (Afrobarometer, prepared by Alfred Torsu, June 2025).
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script src="js/app.js"></script>
+</body>
+</html>

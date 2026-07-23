@@ -1,0 +1,44 @@
+{
+  "sample_size": 2400,
+  "regions_covered": 16,
+  "econ_condition_positive_pct": 16.9,
+  "personal_living_positive_pct": 25.4,
+  "support_democracy_pct": 73.2,
+  "satisfied_democracy_pct": 49.6,
+  "president_approval_pct": 32.2,
+  "trust_president_pct": 27.7,
+  "trust_police_pct": 28.7,
+  "corruption_pres_office_high_pct": 57.7,
+  "corruption_worsened_pct": 76.4,
+  "right_direction_pct": 15.8,
+  "electricity_access_pct": 90.5,
+  "internet_access_pct": 57.9,
+  "avg_lived_poverty_index": 1.07,
+  "high_lived_poverty_pct": 13.1,
+  "top_problems": [
+    {
+      "problem": "Unemployment",
+      "pct": 20.8
+    },
+    {
+      "problem": "Infrastructure / Roads",
+      "pct": 14.3
+    },
+    {
+      "problem": "Management of the economy",
+      "pct": 13.3
+    },
+    {
+      "problem": "Increasing cost of living",
+      "pct": 8.6
+    },
+    {
+      "problem": "Health",
+      "pct": 8.1
+    },
+    {
+      "problem": "Education",
+      "pct": 7.6
+    }
+  ]
+}

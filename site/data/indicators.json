@@ -1,0 +1,1098 @@
+{
+  "Q3": {
+    "theme": "Direction & Economy",
+    "label": "Direction of the country",
+    "question": "Would you say the country is going in the wrong direction or the right direction?",
+    "order": [
+      "Going in the wrong direction",
+      "Going in the right direction"
+    ],
+    "positive": [
+      "Going in the right direction"
+    ]
+  },
+  "Q4A": {
+    "theme": "Direction & Economy",
+    "label": "Country's present economic condition",
+    "question": "In general, how would you describe the present economic condition of this country?",
+    "order": [
+      "Very bad",
+      "Fairly bad",
+      "Neither good nor bad",
+      "Fairly good",
+      "Very good"
+    ],
+    "positive": [
+      "Fairly good",
+      "Very good"
+    ]
+  },
+  "Q4B": {
+    "theme": "Direction & Economy",
+    "label": "Your present living conditions",
+    "question": "In general, how would you describe your own present living conditions?",
+    "order": [
+      "Very bad",
+      "Fairly bad",
+      "Neither good nor bad",
+      "Fairly good",
+      "Very good"
+    ],
+    "positive": [
+      "Fairly good",
+      "Very good"
+    ]
+  },
+  "Q5A": {
+    "theme": "Direction & Economy",
+    "label": "Economic condition vs 12 months ago",
+    "question": "Looking back, how do you rate economic conditions in this country compared to 12 months ago?",
+    "order": [
+      "Much worse",
+      "Worse",
+      "Same",
+      "Better",
+      "Much better"
+    ],
+    "positive": [
+      "Better",
+      "Much better"
+    ]
+  },
+  "Q6": {
+    "theme": "Direction & Economy",
+    "label": "Economic outlook, next 12 months",
+    "question": "Looking ahead, do you expect economic conditions in this country to be better or worse in 12 months' time?",
+    "order": [
+      "Much worse",
+      "Worse",
+      "Same",
+      "Better",
+      "Much better"
+    ],
+    "positive": [
+      "Better",
+      "Much better"
+    ]
+  },
+  "Q7A": {
+    "theme": "Lived Poverty",
+    "label": "Gone without food",
+    "question": "Over the past year, how often, if ever, have you or your family gone without enough food to eat?",
+    "order": [
+      "Never",
+      "Just once or twice",
+      "Several times",
+      "Many times",
+      "Always"
+    ],
+    "positive": [
+      "Never"
+    ]
+  },
+  "Q7B": {
+    "theme": "Lived Poverty",
+    "label": "Gone without clean water",
+    "question": "...gone without enough clean water for home use?",
+    "order": [
+      "Never",
+      "Just once or twice",
+      "Several times",
+      "Many times",
+      "Always"
+    ],
+    "positive": [
+      "Never"
+    ]
+  },
+  "Q7C": {
+    "theme": "Lived Poverty",
+    "label": "Gone without medical care",
+    "question": "...gone without medicines or medical treatment?",
+    "order": [
+      "Never",
+      "Just once or twice",
+      "Several times",
+      "Many times",
+      "Always"
+    ],
+    "positive": [
+      "Never"
+    ]
+  },
+  "Q7D": {
+    "theme": "Lived Poverty",
+    "label": "Gone without cooking fuel",
+    "question": "...gone without enough fuel to cook food?",
+    "order": [
+      "Never",
+      "Just once or twice",
+      "Several times",
+      "Many times",
+      "Always"
+    ],
+    "positive": [
+      "Never"
+    ]
+  },
+  "Q7E": {
+    "theme": "Lived Poverty",
+    "label": "Gone without a cash income",
+    "question": "...gone without a cash income?",
+    "order": [
+      "Never",
+      "Just once or twice",
+      "Several times",
+      "Many times",
+      "Always"
+    ],
+    "positive": [
+      "Never"
+    ]
+  },
+  "Q10A": {
+    "theme": "Democracy",
+    "label": "Freedom to say what you think",
+    "question": "In this country, how free are you to say what you think?",
+    "order": [
+      "Not at all free",
+      "Not very free",
+      "Somewhat free",
+      "Completely free"
+    ],
+    "positive": [
+      "Somewhat free",
+      "Completely free"
+    ]
+  },
+  "Q22": {
+    "theme": "Democracy",
+    "label": "Support for democracy",
+    "question": "Which is closest to your view? (1) doesn't matter what government we have; (2) non-democratic government can be preferable; (3) democracy is preferable to any other kind of government.",
+    "order": [
+      "STATEMENT 3: For someone like me, it doesn’t matter what kind of government we have.",
+      "STATEMENT 2: In some circumstances, a non-democratic government can be preferable.",
+      "STATEMENT 1: Democracy is preferable to any other kind of government."
+    ],
+    "positive": [
+      "STATEMENT 1: Democracy is preferable to any other kind of government."
+    ],
+    "short_labels": {
+      "STATEMENT 3: For someone like me, it doesn’t matter what kind of government we have.": "Doesn't matter",
+      "STATEMENT 2: In some circumstances, a non-democratic government can be preferable.": "Non-democratic OK sometimes",
+      "STATEMENT 1: Democracy is preferable to any other kind of government.": "Democracy preferable"
+    }
+  },
+  "Q32": {
+    "theme": "Democracy",
+    "label": "Extent of democracy today",
+    "question": "In your opinion how much of a democracy is Ghana today?",
+    "order": [
+      "Not a democracy",
+      "A democracy, with major problems",
+      "A democracy, but with minor problems",
+      "A full democracy"
+    ],
+    "positive": [
+      "A democracy, but with minor problems",
+      "A full democracy"
+    ]
+  },
+  "Q33": {
+    "theme": "Democracy",
+    "label": "Satisfaction with democracy",
+    "question": "Overall, how satisfied are you with the way democracy works in Ghana?",
+    "order": [
+      "The country is not a democracy",
+      "Not at all satisfied",
+      "Not very satisfied",
+      "Fairly satisfied",
+      "Very satisfied"
+    ],
+    "positive": [
+      "Fairly satisfied",
+      "Very satisfied"
+    ]
+  },
+  "Q29": {
+    "theme": "Democracy",
+    "label": "Presidential term limits",
+    "question": "Statement 1: the Constitution should limit the president to two terms. Statement 2: there should be no limit.",
+    "order": [
+      "Agree with 1",
+      "Agree with 2",
+      "Agree with neither"
+    ],
+    "positive": [
+      "Agree with 1"
+    ],
+    "short_labels": {
+      "Agree with 1": "Two-term limit",
+      "Agree with 2": "No term limits",
+      "Agree with neither": "Neither"
+    }
+  },
+  "Q15": {
+    "theme": "Elections",
+    "label": "Freeness & fairness of last election",
+    "question": "On the whole, how would you rate the freeness and fairness of the last national election (Dec 2020)?",
+    "order": [
+      "Not free and fair",
+      "Free and fair, but with major problems",
+      "Free and fair, but with minor problems",
+      "Completely free and fair"
+    ],
+    "positive": [
+      "Free and fair, but with minor problems",
+      "Completely free and fair"
+    ]
+  },
+  "Q13A": {
+    "theme": "Elections",
+    "label": "Voted in most recent national election",
+    "question": "In the last national election, did you vote, or not?",
+    "order": [
+      "I did not vote",
+      "I was too young to vote",
+      "I can’t remember whether I voted",
+      "I voted in the election"
+    ],
+    "positive": [
+      "I voted in the election"
+    ]
+  },
+  "Q34C": {
+    "theme": "Governance",
+    "label": "Judges/magistrates favor political influence over law",
+    "question": "How often do judges and magistrates favor political considerations over the law?",
+    "order": [
+      "Never",
+      "Just once or twice",
+      "Several times",
+      "Many times"
+    ],
+    "positive": [
+      "Never",
+      "Rarely"
+    ]
+  },
+  "Q34D": {
+    "theme": "Governance",
+    "label": "People treated unequally under the law",
+    "question": "How often are people treated unequally under the law?",
+    "order": [
+      "Never",
+      "Just once or twice",
+      "Several times",
+      "Many times"
+    ],
+    "positive": [
+      "Never",
+      "Rarely"
+    ]
+  },
+  "Q35": {
+    "theme": "Governance",
+    "label": "Freedom of the news media",
+    "question": "How free is the news media to report and comment on the news without government censorship?",
+    "order": [
+      "Not at all free",
+      "Not very free",
+      "Somewhat free",
+      "Completely free"
+    ],
+    "positive": [
+      "Somewhat free",
+      "Completely free"
+    ]
+  },
+  "Q48A": {
+    "theme": "Governance",
+    "label": "Approval: President's performance",
+    "question": "Do you approve or disapprove of the way the President has performed over the past 12 months?",
+    "order": [
+      "Strongly disapprove",
+      "Disapprove",
+      "Approve",
+      "Strongly approve"
+    ],
+    "positive": [
+      "Approve",
+      "Strongly approve"
+    ]
+  },
+  "Q48B": {
+    "theme": "Governance",
+    "label": "Approval: your Member of Parliament",
+    "question": "Do you approve or disapprove of the way your MP has performed?",
+    "order": [
+      "Strongly disapprove",
+      "Disapprove",
+      "Approve",
+      "Strongly approve"
+    ],
+    "positive": [
+      "Approve",
+      "Strongly approve"
+    ]
+  },
+  "Q47A": {
+    "theme": "Governance",
+    "label": "Handling: managing the economy",
+    "question": "How well or badly is the government handling: managing the economy?",
+    "order": [
+      "Very badly",
+      "Fairly badly",
+      "Fairly well",
+      "Very well"
+    ],
+    "positive": [
+      "Fairly well",
+      "Very well"
+    ]
+  },
+  "Q47C": {
+    "theme": "Governance",
+    "label": "Handling: creating jobs",
+    "question": "How well or badly is the government handling: creating jobs?",
+    "order": [
+      "Very badly",
+      "Fairly badly",
+      "Fairly well",
+      "Very well"
+    ],
+    "positive": [
+      "Fairly well",
+      "Very well"
+    ]
+  },
+  "Q47J": {
+    "theme": "Governance",
+    "label": "Handling: fighting corruption",
+    "question": "How well or badly is the government handling: fighting corruption?",
+    "order": [
+      "Very badly",
+      "Fairly badly",
+      "Fairly well",
+      "Very well"
+    ],
+    "positive": [
+      "Fairly well",
+      "Very well"
+    ]
+  },
+  "Q47G": {
+    "theme": "Governance",
+    "label": "Handling: basic health services",
+    "question": "How well or badly is the government handling: improving basic health services?",
+    "order": [
+      "Very badly",
+      "Fairly badly",
+      "Fairly well",
+      "Very well"
+    ],
+    "positive": [
+      "Fairly well",
+      "Very well"
+    ]
+  },
+  "Q47H": {
+    "theme": "Governance",
+    "label": "Handling: educational needs",
+    "question": "How well or badly is the government handling: addressing educational needs?",
+    "order": [
+      "Very badly",
+      "Fairly badly",
+      "Fairly well",
+      "Very well"
+    ],
+    "positive": [
+      "Fairly well",
+      "Very well"
+    ]
+  },
+  "Q47L": {
+    "theme": "Governance",
+    "label": "Handling: electricity supply",
+    "question": "How well or badly is the government handling: providing a reliable supply of electricity?",
+    "order": [
+      "Very badly",
+      "Fairly badly",
+      "Fairly well",
+      "Very well"
+    ],
+    "positive": [
+      "Fairly well",
+      "Very well"
+    ]
+  },
+  "Q38A": {
+    "theme": "Corruption",
+    "label": "Corruption: Office of the Presidency",
+    "question": "How many of the following do you think are involved in corruption: the President and officials in his office?",
+    "order": [
+      "None",
+      "Some of them",
+      "Most of them",
+      "All of them"
+    ],
+    "positive": [
+      "None",
+      "Some of them"
+    ]
+  },
+  "Q38B": {
+    "theme": "Corruption",
+    "label": "Corruption: Members of Parliament",
+    "question": "...Members of Parliament?",
+    "order": [
+      "None",
+      "Some of them",
+      "Most of them",
+      "All of them"
+    ],
+    "positive": [
+      "None",
+      "Some of them"
+    ]
+  },
+  "Q38E": {
+    "theme": "Corruption",
+    "label": "Corruption: Police",
+    "question": "...the Police?",
+    "order": [
+      "None",
+      "Some of them",
+      "Most of them",
+      "All of them"
+    ],
+    "positive": [
+      "None",
+      "Some of them"
+    ]
+  },
+  "Q38G": {
+    "theme": "Corruption",
+    "label": "Corruption: Tax officials",
+    "question": "...Tax officials?",
+    "order": [
+      "None",
+      "Some of them",
+      "Most of them",
+      "All of them"
+    ],
+    "positive": [
+      "None",
+      "Some of them"
+    ]
+  },
+  "Q39A": {
+    "theme": "Corruption",
+    "label": "Change in corruption, past year",
+    "question": "Over the past year, has the level of corruption increased, decreased, or stayed the same?",
+    "order": [
+      "Increased a lot",
+      "Increased somewhat",
+      "Stayed the same",
+      "Decreased somewhat",
+      "Decreased a lot"
+    ],
+    "positive": [
+      "Decreased somewhat",
+      "Decreased a lot"
+    ]
+  },
+  "Q39B": {
+    "theme": "Corruption",
+    "label": "Can report corruption without fear",
+    "question": "Can ordinary people report corruption without fear, or do they risk retaliation?",
+    "order": [
+      "Can report without fear",
+      "Risk retaliation or other negative consequences"
+    ],
+    "positive": [
+      "Can report without fear"
+    ]
+  },
+  "Q37A": {
+    "theme": "Trust",
+    "label": "Trust: the President",
+    "question": "How much do you trust the President?",
+    "order": [
+      "Not at all",
+      "Just a little",
+      "Somewhat",
+      "A lot"
+    ],
+    "positive": [
+      "Somewhat",
+      "A lot"
+    ]
+  },
+  "Q37B": {
+    "theme": "Trust",
+    "label": "Trust: Parliament",
+    "question": "How much do you trust Parliament?",
+    "order": [
+      "Not at all",
+      "Just a little",
+      "Somewhat",
+      "A lot"
+    ],
+    "positive": [
+      "Somewhat",
+      "A lot"
+    ]
+  },
+  "Q37C": {
+    "theme": "Trust",
+    "label": "Trust: Electoral Commission",
+    "question": "How much do you trust the National Electoral Commission?",
+    "order": [
+      "Not at all",
+      "Just a little",
+      "Somewhat",
+      "A lot"
+    ],
+    "positive": [
+      "Somewhat",
+      "A lot"
+    ]
+  },
+  "Q37G": {
+    "theme": "Trust",
+    "label": "Trust: the Police",
+    "question": "How much do you trust the Police?",
+    "order": [
+      "Not at all",
+      "Just a little",
+      "Somewhat",
+      "A lot"
+    ],
+    "positive": [
+      "Somewhat",
+      "A lot"
+    ]
+  },
+  "Q37I": {
+    "theme": "Trust",
+    "label": "Trust: the Courts",
+    "question": "How much do you trust the Courts of Law?",
+    "order": [
+      "Not at all",
+      "Just a little",
+      "Somewhat",
+      "A lot"
+    ],
+    "positive": [
+      "Somewhat",
+      "A lot"
+    ]
+  },
+  "Q37K": {
+    "theme": "Trust",
+    "label": "Trust: Traditional leaders",
+    "question": "How much do you trust Traditional leaders?",
+    "order": [
+      "Not at all",
+      "Just a little",
+      "Somewhat",
+      "A lot"
+    ],
+    "positive": [
+      "Somewhat",
+      "A lot"
+    ]
+  },
+  "Q37M": {
+    "theme": "Trust",
+    "label": "Trust: NGOs / civil society",
+    "question": "How much do you trust Non-Governmental Organisations?",
+    "order": [
+      "Not at all",
+      "Just a little",
+      "Somewhat",
+      "A lot"
+    ],
+    "positive": [
+      "Somewhat",
+      "A lot"
+    ]
+  },
+  "Q49B": {
+    "theme": "Gender",
+    "label": "Men should have more right to a job than women",
+    "question": "When jobs are scarce, men should have more right to a job than women. Agree or disagree?",
+    "order": [
+      "Strongly disagree",
+      "Disagree",
+      "Neither Agree nor disagree",
+      "Agree",
+      "Strongly agree"
+    ],
+    "positive": [
+      "Strongly disagree",
+      "Disagree"
+    ]
+  },
+  "Q51": {
+    "theme": "Gender",
+    "label": "Women's chances for political leadership",
+    "question": "Statement 1: men make better leaders and should be elected over women. Statement 2: women should have the same chance of election as men.",
+    "order": [
+      "Agree with 1",
+      "Agree with 2",
+      "Agree with neither"
+    ],
+    "positive": [
+      "Agree with 2"
+    ],
+    "short_labels": {
+      "Agree with 1": "Men make better leaders",
+      "Agree with 2": "Equal chance for women",
+      "Agree with neither": "Neither"
+    }
+  },
+  "Q53A": {
+    "theme": "Gender",
+    "label": "Police/courts protect women & girls",
+    "question": "Are police and courts doing enough to protect women and girls, or do they need to do more?",
+    "order": [
+      "Need to do much more",
+      "Need to do somewhat more",
+      "Doing enough"
+    ],
+    "positive": [
+      "Doing enough"
+    ]
+  },
+  "Q86C": {
+    "theme": "Gender",
+    "label": "Girls should continue school through pregnancy",
+    "question": "Girls who become pregnant should be able to continue their education. Agree or disagree?",
+    "order": [
+      "Strongly disagree",
+      "Disagree",
+      "Neither Agree nor disagree",
+      "Agree",
+      "Strongly agree"
+    ],
+    "positive": [
+      "Agree",
+      "Strongly agree"
+    ]
+  },
+  "Q86D": {
+    "theme": "Gender",
+    "label": "Sex education should be taught in schools",
+    "question": "Sex education should be taught in schools. Agree or disagree?",
+    "order": [
+      "Strongly disagree",
+      "Disagree",
+      "Neither Agree nor disagree",
+      "Agree",
+      "Strongly agree"
+    ],
+    "positive": [
+      "Agree",
+      "Strongly agree"
+    ]
+  },
+  "Q50": {
+    "theme": "Youth",
+    "label": "Top priority for youth investment",
+    "question": "Which of these should be the top priority for government investment in youth programs?",
+    "order": [
+      "Job creation",
+      "Education",
+      "Jobs training",
+      "Access to business loans",
+      "Social services for youth, for example, to improve health and prevent drug abuse",
+      "None of the above/some other programs",
+      "Government should not increase its spending on programs to help young people"
+    ],
+    "positive": null
+  },
+  "Q94D": {
+    "theme": "Youth",
+    "label": "Main barrier to youth employment",
+    "question": "What is the main barrier keeping young people from finding employment?",
+    "order": [
+      "Youth do not face barriers to getting employment",
+      "Lack of adequate training or preparation",
+      "Lack of experience required by employers",
+      "Youth are unwilling to work certain jobs (e.g., in agriculture or difficult jobs)",
+      "Youth lack of entrepreneurial skills or motivation",
+      "There is a mismatch between education qualifications and job requirements",
+      "Some other barrier"
+    ],
+    "positive": null
+  },
+  "Q40A": {
+    "theme": "Public Services",
+    "label": "Contact with public clinic/hospital (12 mo.)",
+    "question": "In the past 12 months, have you had contact with a public clinic or hospital?",
+    "order": [
+      "No",
+      "Yes"
+    ],
+    "positive": null
+  },
+  "Q40B": {
+    "theme": "Public Services",
+    "label": "Ease of obtaining medical care",
+    "question": "How easy or difficult was it to obtain the medical care you needed?",
+    "order": [
+      "Very easy",
+      "Easy",
+      "Difficult",
+      "Very Difficult"
+    ],
+    "positive": [
+      "Very easy",
+      "Easy"
+    ]
+  },
+  "Q40C": {
+    "theme": "Public Services",
+    "label": "Paid a bribe for medical care",
+    "question": "How often did you have to pay a bribe for medical care?",
+    "order": [
+      "Never",
+      "Once or twice",
+      "A few times",
+      "Often"
+    ],
+    "positive": [
+      "Never"
+    ]
+  },
+  "Q44A": {
+    "theme": "Public Services",
+    "label": "Tried to obtain an ID document (12 mo.)",
+    "question": "In the past 12 months, have you tried to obtain an identity document (birth certificate, passport, voter's card, etc.)?",
+    "order": [
+      "No",
+      "Yes"
+    ],
+    "positive": null
+  },
+  "Q44B": {
+    "theme": "Public Services",
+    "label": "Ease of obtaining an ID document",
+    "question": "How easy or difficult was it to obtain the document you needed?",
+    "order": [
+      "Very easy",
+      "Easy",
+      "Difficult",
+      "Very Difficult"
+    ],
+    "positive": [
+      "Very easy",
+      "Easy"
+    ]
+  },
+  "Q93A": {
+    "theme": "Infrastructure",
+    "label": "Electric connection from the grid",
+    "question": "Do you have an electric connection to your home from the national grid?",
+    "order": [
+      "No",
+      "Yes"
+    ],
+    "positive": [
+      "Yes"
+    ]
+  },
+  "Q93B": {
+    "theme": "Infrastructure",
+    "label": "Reliability of electricity supply",
+    "question": "How often is electricity actually available from this connection?",
+    "order": [
+      "Never",
+      "Occasionally",
+      "About half of the time",
+      "Most of the time",
+      "All of the time"
+    ],
+    "positive": [
+      "Most of the time",
+      "All of the time"
+    ]
+  },
+  "Q92": {
+    "theme": "Infrastructure",
+    "label": "Main source of drinking water",
+    "question": "What is your main source of water for household use?",
+    "order": [
+      "Piped public or community water system",
+      "Tubewell or borehole",
+      "Dug well that is protected",
+      "Dug well that is not protected",
+      "Spring that is protected",
+      "Spring that is unprotected",
+      "Rainwater",
+      "Bottled water",
+      "Purchased from a cart or truck",
+      "Surface water, like a river, dam, lake, pond, stream, canal, or irrigation channel"
+    ],
+    "positive": [
+      "Piped public or community water system",
+      "Tubewell or borehole",
+      "Dug well that is protected",
+      "Spring that is protected",
+      "Bottled water"
+    ]
+  },
+  "Q90H": {
+    "theme": "Digital Access",
+    "label": "Mobile phone has internet access",
+    "question": "Does your phone have access to the internet?",
+    "order": [
+      "No (Does not have Internet access)",
+      "Yes (Has Internet access)"
+    ],
+    "positive": [
+      "Yes (Has Internet access)"
+    ]
+  },
+  "Q90J": {
+    "theme": "Digital Access",
+    "label": "Frequency of internet use",
+    "question": "How often do you use the internet?",
+    "order": [
+      "Never",
+      "Less than once a month",
+      "A few times a month",
+      "A few times a week",
+      "Every day"
+    ],
+    "positive": [
+      "A few times a week",
+      "Every day"
+    ]
+  },
+  "Q90G": {
+    "theme": "Digital Access",
+    "label": "Owns a mobile money account",
+    "question": "Do you personally own a mobile money account?",
+    "order": [
+      "No, no one in the household owns",
+      "Someone else in household owns",
+      "Yes (personally owns)"
+    ],
+    "positive": [
+      "Yes (personally owns)"
+    ]
+  },
+  "Q65A": {
+    "theme": "Media",
+    "label": "Get news from radio",
+    "question": "How often do you get news from the radio?",
+    "order": [
+      "Never",
+      "Less than once a month",
+      "A few times a month",
+      "A few times a week",
+      "Every day"
+    ],
+    "positive": [
+      "A few times a week",
+      "Every day"
+    ]
+  },
+  "Q65D": {
+    "theme": "Media",
+    "label": "Get news from social media",
+    "question": "How often do you get news from social media (Facebook, WhatsApp, etc.)?",
+    "order": [
+      "Never",
+      "Less than once a month",
+      "A few times a month",
+      "A few times a week",
+      "Every day"
+    ],
+    "positive": [
+      "A few times a week",
+      "Every day"
+    ]
+  },
+  "Q60A": {
+    "theme": "Climate",
+    "label": "Heard of climate change",
+    "question": "Have you heard about climate change?",
+    "order": [
+      "No",
+      "Yes"
+    ],
+    "positive": [
+      "Yes"
+    ]
+  },
+  "Q60B": {
+    "theme": "Climate",
+    "label": "Climate change making life worse",
+    "question": "Do you think climate change is making life in Ghana better or worse?",
+    "order": [
+      "Much better",
+      "Somewhat better",
+      "Neither/ no change / about the same",
+      "Somewhat worse",
+      "Much worse"
+    ],
+    "positive": [
+      "Somewhat worse",
+      "Much worse"
+    ]
+  },
+  "Q62A": {
+    "theme": "Climate",
+    "label": "Government must act now on climate change",
+    "question": "It is important for our government to take steps now to limit climate change, even if expensive. Agree or disagree?",
+    "order": [
+      "Strongly disagree",
+      "Disagree",
+      "Neither Agree nor disagree",
+      "Agree",
+      "Strongly agree"
+    ],
+    "positive": [
+      "Agree",
+      "Strongly agree"
+    ]
+  },
+  "Q59A": {
+    "theme": "Climate",
+    "label": "Severity of droughts, past decade",
+    "question": "Over the past 10 years, has the severity of droughts increased, decreased, or stayed the same?",
+    "order": [
+      "Much more severe",
+      "Somewhat more severe",
+      "Stayed the same",
+      "Somewhat less severe",
+      "Much less severe"
+    ],
+    "positive": null
+  },
+  "Q59B": {
+    "theme": "Climate",
+    "label": "Severity of flooding, past decade",
+    "question": "...severity of flooding?",
+    "order": [
+      "Much more severe",
+      "Somewhat more severe",
+      "Stayed the same",
+      "Somewhat less severe",
+      "Much less severe"
+    ],
+    "positive": null
+  },
+  "Q9": {
+    "theme": "Security",
+    "label": "Felt unsafe in home / neighbourhood",
+    "question": "Over the past year, how often have you or your family felt unsafe walking in your neighbourhood or in your own home?",
+    "order": [
+      "Never",
+      "Just once or twice",
+      "Several times",
+      "Many times",
+      "Always"
+    ],
+    "positive": [
+      "Never"
+    ]
+  },
+  "Q45D": {
+    "theme": "Security",
+    "label": "Contact with police (checkpoints, stops etc.)",
+    "question": "In the past 12 months, how often have you encountered the police in situations like checkpoints or traffic stops?",
+    "order": [
+      "Never",
+      "Once or twice",
+      "A few times",
+      "Often"
+    ],
+    "positive": null
+  },
+  "Q71A": {
+    "theme": "Migration",
+    "label": "Considered emigrating",
+    "question": "Have you considered emigrating to another country?",
+    "order": [
+      "Not at all",
+      "A little bit",
+      "Somewhat",
+      "A lot"
+    ],
+    "positive": [
+      "Not at all"
+    ]
+  },
+  "Q66": {
+    "theme": "International",
+    "label": "China's economic influence",
+    "question": "How much influence do you think China's economic activities have on our economy?",
+    "order": [
+      "None",
+      "A little",
+      "Somewhat",
+      "A lot"
+    ],
+    "positive": null
+  },
+  "Q67C": {
+    "theme": "International",
+    "label": "Influence of the United States",
+    "question": "Is the economic and political influence of the United States on Ghana mostly positive or negative?",
+    "order": [
+      "Very negative",
+      "Somewhat negative",
+      "Neither positive nor negative",
+      "Somewhat positive",
+      "Very positive"
+    ],
+    "positive": [
+      "Somewhat positive",
+      "Very positive"
+    ]
+  },
+  "Q46PT1": {
+    "theme": "Direction & Economy",
+    "label": "Most important problem facing the country",
+    "question": "In your opinion, what is the most important problem facing this country that government should address? (first-mentioned response)",
+    "order": [
+      "Management of the economy",
+      "Wages, incomes and salaries",
+      "Unemployment",
+      "Poverty/ Destitution",
+      "Rates and taxes",
+      "Loans / Credit",
+      "Farming/ Agriculture",
+      "Food shortage/ Famine",
+      "Infrastructure / Roads",
+      "Education",
+      "Housing",
+      "Electricity",
+      "Water supply",
+      "Services (other)",
+      "Health",
+      "Sickness / Disease",
+      "Crime and security",
+      "Corruption",
+      "Political instability/ Political divisions/ Ethnic tensions",
+      "Discrimination/ Inequality",
+      "Gender issues / Women’s rights",
+      "Democracy/ Political rights",
+      "Climate change",
+      "Increasing cost of living",
+      "Nothing/ No problems",
+      "Communications",
+      "Transportation",
+      "Land",
+      "Political violence",
+      "Agricultural marketing",
+      "Orphans/ Street children/ Homeless children"
+    ],
+    "positive": null
+  }
+}
