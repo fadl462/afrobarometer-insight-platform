@@ -48,31 +48,55 @@ async function boot() {
   initRegionalIntelligence();
   initPolicyInsightCentre();
   renderMethodology();
+  initAssistant();
+  initQACentre();
 }
 
 // ---------------------------------------------------------------------------
 // Navigation
 // ---------------------------------------------------------------------------
+const VIEW_TITLES = {
+  executive: "Executive Briefing", country: "Country Intelligence Centre",
+  indicator: "Indicator Explorer", demographic: "Demographic Intelligence",
+  regional: "Regional Intelligence", compare: "Compare Countries",
+  policy: "Policy Insight Centre", qa: "Ask the Data", methodology: "Methodology & Downloads",
+};
+
+function switchView(viewKey) {
+  document.querySelectorAll(".nav-item").forEach(b => b.classList.toggle("active", b.dataset.view === viewKey));
+  document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+  document.getElementById("view-" + viewKey).classList.add("active");
+  document.getElementById("topbarTitle").textContent = VIEW_TITLES[viewKey];
+  document.getElementById("sidebar").classList.remove("open");
+  window.scrollTo({ top: 0, behavior: "instant" in window ? "instant" : "auto" });
+}
+
 function initNav() {
-  const titles = {
-    executive: "Executive Briefing", country: "Country Intelligence Centre",
-    indicator: "Indicator Explorer", demographic: "Demographic Intelligence",
-    regional: "Regional Intelligence", compare: "Compare Countries",
-    policy: "Policy Insight Centre", methodology: "Methodology & Downloads",
-  };
   document.querySelectorAll(".nav-item").forEach(btn => {
-    btn.addEventListener("click", () => {
-      document.querySelectorAll(".nav-item").forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
-      document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
-      document.getElementById("view-" + btn.dataset.view).classList.add("active");
-      document.getElementById("topbarTitle").textContent = titles[btn.dataset.view];
-      document.getElementById("sidebar").classList.remove("open");
-    });
+    btn.addEventListener("click", () => switchView(btn.dataset.view));
   });
   document.getElementById("hamburger").addEventListener("click", () => {
     document.getElementById("sidebar").classList.toggle("open");
   });
+}
+
+/** Jump to Indicator Explorer with a specific indicator (and optional filters) preselected. */
+function goToIndicatorView(varKey, filters) {
+  const meta = APP.indicators[varKey];
+  document.getElementById("themeSelect").value = meta.theme;
+  populateIndicatorSelect();
+  document.getElementById("indicatorSelect").value = varKey;
+  document.querySelectorAll("#indFilterBar select").forEach(s => { s.value = (filters && filters[s.dataset.field]) || ""; });
+  renderIndicatorExplorer();
+  switchView("indicator");
+}
+
+/** Jump to Regional Intelligence with a region preselected. */
+function goToRegionalView(regionName, varKey) {
+  if (varKey) document.getElementById("regionIndicatorSelect").value = varKey;
+  APP.regionSelected = regionName;
+  renderRegional();
+  switchView("regional");
 }
 
 function initTheme() {
@@ -154,6 +178,33 @@ function groupFavorable(records, varKey, groupField) {
 
 function fmtPct(v) { return v === null || v === undefined ? "—" : v.toFixed(1) + "%"; }
 
+/** Render a sortable HTML table. columns: [{key,label,numeric}], rows: [{...}] */
+function renderSortableTable(containerId, columns, rows, initialSortKey) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  let sortKey = initialSortKey || columns[0].key;
+  let sortDir = -1;
+  function draw() {
+    const sorted = [...rows].sort((a, b) => {
+      const av = a[sortKey], bv = b[sortKey];
+      if (typeof av === "number") return (av - bv) * sortDir;
+      return String(av).localeCompare(String(bv)) * sortDir;
+    });
+    container.innerHTML = `<div class="table-wrap"><table class="datatable sortable"><thead><tr>${
+      columns.map(c => `<th data-key="${c.key}" class="${c.key === sortKey ? 'sorted' : ''}">${c.label}<span class="sort-arrow">${c.key === sortKey ? (sortDir === 1 ? '▲' : '▼') : '▲▼'}</span></th>`).join("")
+    }</tr></thead><tbody>${
+      sorted.map(r => `<tr>${columns.map(c => `<td>${c.numeric ? (typeof r[c.key] === "number" ? (c.pct ? r[c.key].toFixed(1) + "%" : Math.round(r[c.key])) : r[c.key]) : r[c.key]}</td>`).join("")}</tr>`).join("")
+    }</tbody></table></div>`;
+    container.querySelectorAll("th").forEach(th => th.addEventListener("click", () => {
+      const key = th.dataset.key;
+      sortDir = (key === sortKey) ? -sortDir : -1;
+      sortKey = key;
+      draw();
+    }));
+  }
+  draw();
+}
+
 // ---------------------------------------------------------------------------
 // Chart helper
 // ---------------------------------------------------------------------------
@@ -179,6 +230,8 @@ function barConfig(labels, data, opts = {}) {
     options: {
       indexAxis: opts.horizontal ? "y" : "x",
       responsive: true, maintainAspectRatio: false,
+      onClick: opts.onClick ? (evt, elements) => { if (elements.length) opts.onClick(elements[0].index); } : undefined,
+      onHover: opts.onClick ? (evt, elements) => { evt.native.target.style.cursor = elements.length ? "pointer" : "default"; } : undefined,
       plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${c.formattedValue}%` } } },
       scales: {
         x: { grid: { color: line() }, ticks: { callback: v => (opts.horizontal ? v + "%" : v) } },
@@ -194,21 +247,29 @@ function barConfig(labels, data, opts = {}) {
 function renderExecutive() {
   const e = APP.exec;
   const kpis = [
-    { label: "Country's economic condition, positive", value: e.econ_condition_positive_pct, tag: e.econ_condition_positive_pct < 40 ? "bad" : "good" },
-    { label: "Support for democracy", value: e.support_democracy_pct, tag: e.support_democracy_pct >= 60 ? "good" : "neutral" },
-    { label: "Satisfied with democracy", value: e.satisfied_democracy_pct, tag: e.satisfied_democracy_pct >= 50 ? "good" : "bad" },
-    { label: "Approve of President's performance", value: e.president_approval_pct, tag: e.president_approval_pct >= 50 ? "good" : "bad" },
-    { label: "Corruption perceived to have worsened", value: e.corruption_worsened_pct, tag: "bad" },
-    { label: "Household electricity grid access", value: e.electricity_access_pct, tag: "good" },
-    { label: "Mobile internet access", value: e.internet_access_pct, tag: "good" },
-    { label: "High lived poverty", value: e.high_lived_poverty_pct, tag: "bad" },
+    { label: "Country's economic condition, positive", value: e.econ_condition_positive_pct, tag: e.econ_condition_positive_pct < 40 ? "bad" : "good", varKey: "Q4A" },
+    { label: "Support for democracy", value: e.support_democracy_pct, tag: e.support_democracy_pct >= 60 ? "good" : "neutral", varKey: "Q22" },
+    { label: "Satisfied with democracy", value: e.satisfied_democracy_pct, tag: e.satisfied_democracy_pct >= 50 ? "good" : "bad", varKey: "Q33" },
+    { label: "Approve of President's performance", value: e.president_approval_pct, tag: e.president_approval_pct >= 50 ? "good" : "bad", varKey: "Q48A" },
+    { label: "Corruption perceived to have worsened", value: e.corruption_worsened_pct, tag: "bad", varKey: "Q39A" },
+    { label: "Household electricity grid access", value: e.electricity_access_pct, tag: "good", varKey: "Q93A" },
+    { label: "Mobile internet access", value: e.internet_access_pct, tag: "good", varKey: "Q90H" },
+    { label: "High lived poverty", value: e.high_lived_poverty_pct, tag: "bad", varKey: null, demoFilter: { lpi_cat: "High lived poverty" } },
   ];
-  document.getElementById("execKpis").innerHTML = kpis.map(k => `
-    <div class="kpi">
+  document.getElementById("execKpis").innerHTML = kpis.map((k, i) => `
+    <div class="kpi clickable" data-kpi-idx="${i}">
       <div class="kpi-label">${k.label}</div>
       <div class="kpi-value">${fmtPct(k.value)}</div>
       <span class="kpi-tag tag-${k.tag}">${k.tag === "good" ? "Favourable" : k.tag === "bad" ? "Watch" : "Mixed"}</span>
+      <div class="click-hint">${k.varKey ? "Explore in Indicator Explorer →" : "Explore in Demographic Intelligence →"}</div>
     </div>`).join("");
+  document.querySelectorAll("#execKpis .kpi").forEach((el, i) => {
+    el.addEventListener("click", () => {
+      const k = kpis[i];
+      if (k.varKey) goToIndicatorView(k.varKey);
+      else { switchView("demographic"); setTimeout(() => { document.querySelector('.demoFilterSelect[data-field="lpi_cat"]').value = k.demoFilter.lpi_cat; renderDemographic(); }, 50); }
+    });
+  });
 
   const tickerItems = [
     `n=<b>${e.sample_size}</b> respondents`, `<b>${e.regions_covered}</b> regions covered`,
@@ -230,22 +291,23 @@ function renderExecutive() {
   document.getElementById("execInsights").innerHTML = insights.map((t, i) => `<div class="finding"><span class="fn-badge">${i + 1}</span><span>${t}</span></div>`).join("");
 
   document.getElementById("execMip").innerHTML = e.top_problems.map(p => `
-    <div class="rank-row">
+    <div class="rank-row clickable" data-mip="1">
       <div class="rank-name">${p.problem}</div>
       <div class="rank-track"><div class="rank-fill" style="width:${Math.min(100, p.pct * 4)}%"></div></div>
       <div class="rank-val">${p.pct}%</div>
     </div>`).join("");
+  document.querySelectorAll('#execMip [data-mip]').forEach(el => el.addEventListener("click", () => goToIndicatorView("Q46PT1")));
 
   // Direction of country by region
   const regionGroups = groupFavorable(APP.records, "Q3", "region");
   const rEntries = Object.entries(regionGroups).filter(([, v]) => v.pct !== null).sort((a, b) => b[1].pct - a[1].pct);
-  makeChart("execRegionChart", barConfig(rEntries.map(([k]) => k), rEntries.map(([, v]) => v.pct), { horizontal: true, colors: PALETTE[0], thick: 14 }));
+  makeChart("execRegionChart", barConfig(rEntries.map(([k]) => k), rEntries.map(([, v]) => v.pct), { horizontal: true, colors: PALETTE[0], thick: 14, onClick: (i) => goToRegionalView(rEntries[i][0], "Q3") }));
 
   // Trust in institutions, national
   const trustVars = ["Q37A", "Q37B", "Q37C", "Q37G", "Q37I", "Q37K", "Q37M"];
   const trustLabels = trustVars.map(v => APP.indicators[v].label.replace("Trust: ", ""));
   const trustVals = trustVars.map(v => weightedFavorable(APP.records, v).pct);
-  makeChart("execTrustChart", barConfig(trustLabels, trustVals, { horizontal: true, colors: PALETTE[1], thick: 14 }));
+  makeChart("execTrustChart", barConfig(trustLabels, trustVals, { horizontal: true, colors: PALETTE[1], thick: 14, onClick: (i) => goToIndicatorView(trustVars[i]) }));
 }
 
 // ---------------------------------------------------------------------------
@@ -364,6 +426,9 @@ function renderIndicatorExplorer() {
   const dist = weightedDistribution(filtered, varKey);
   document.getElementById("indDistN").textContent = `n = ${dist.n}${Object.keys(filters).length ? " (filtered)" : ""}`;
   makeChart("indDistChart", barConfig(dist.labels, dist.pcts, { horizontal: true, colors: PALETTE[0] }));
+  renderSortableTable("indDistTable",
+    [{ key: "response", label: "Response" }, { key: "pct", label: "%", numeric: true, pct: true }],
+    dist.labels.map((l, i) => ({ response: l, pct: dist.pcts[i] })), "pct");
 
   // Regional comparison (only meaningful if favourable set defined)
   const regionMetricEl = document.getElementById("indRegionMetric");
@@ -371,7 +436,13 @@ function renderIndicatorExplorer() {
     regionMetricEl.textContent = "% favourable, by region";
     const rg = groupFavorable(filtered, varKey, "region");
     const entries = Object.entries(rg).filter(([, v]) => v.pct !== null).sort((a, b) => b[1].pct - a[1].pct);
-    makeChart("indRegionChart", barConfig(entries.map(([k]) => k), entries.map(([, v]) => v.pct), { horizontal: true, colors: PALETTE[1], thick: 12 }));
+    makeChart("indRegionChart", barConfig(entries.map(([k]) => k), entries.map(([, v]) => v.pct), {
+      horizontal: true, colors: PALETTE[1], thick: 12,
+      onClick: (i) => { document.getElementById("ind_region").value = entries[i][0]; renderIndicatorExplorer(); },
+    }));
+    renderSortableTable("indRegionTable",
+      [{ key: "region", label: "Region" }, { key: "pct", label: "% favourable", numeric: true, pct: true }, { key: "n", label: "n", numeric: true }],
+      entries.map(([k, v]) => ({ region: k, pct: v.pct, n: v.size })), "pct");
   } else {
     regionMetricEl.textContent = "most common response, by region";
     const regions = [...new Set(filtered.map(r => r.region).filter(Boolean))].sort();
@@ -381,7 +452,13 @@ function renderIndicatorExplorer() {
       const maxI = d.pcts.indexOf(Math.max(...d.pcts));
       return d.pcts[maxI];
     });
-    makeChart("indRegionChart", barConfig(regions, modal, { horizontal: true, colors: PALETTE[1], thick: 12 }));
+    makeChart("indRegionChart", barConfig(regions, modal, {
+      horizontal: true, colors: PALETTE[1], thick: 12,
+      onClick: (i) => { document.getElementById("ind_region").value = regions[i]; renderIndicatorExplorer(); },
+    }));
+    renderSortableTable("indRegionTable",
+      [{ key: "region", label: "Region" }, { key: "pct", label: "Top response %", numeric: true, pct: true }],
+      regions.map((reg, i) => ({ region: reg, pct: modal[i] })), "pct");
   }
 
   // Urban / rural
@@ -535,11 +612,17 @@ function renderRegional() {
   const entries = Object.entries(byRegion).filter(([, v]) => v.pct !== null).sort((a, b) => b[1].pct - a[1].pct);
   const max = Math.max(...entries.map(([, v]) => v.pct), 1);
   document.getElementById("regionRankList").innerHTML = entries.map(([k, v]) => `
-    <div class="rank-row">
+    <div class="rank-row clickable" data-region-row="${k}">
       <div class="rank-name">${k}</div>
       <div class="rank-track"><div class="rank-fill" style="width:${(v.pct / max) * 100}%"></div></div>
       <div class="rank-val">${v.pct}%</div>
     </div>`).join("");
+  document.querySelectorAll('#regionRankList [data-region-row]').forEach(el => {
+    el.addEventListener("click", () => {
+      APP.regionSelected = APP.regionSelected === el.dataset.regionRow ? null : el.dataset.regionRow;
+      renderRegional();
+    });
+  });
 
   const detailCard = document.getElementById("regionDetailCard");
   if (APP.regionSelected) {
@@ -604,8 +687,11 @@ function renderPolicy() {
   findings.sort((a, b) => b.gap - a.gap);
   const top = findings.slice(0, 25);
   document.getElementById("policyFindings").innerHTML = top.length
-    ? top.map((f, i) => `<div class="finding"><span class="fn-badge">${i + 1}</span><span>${f.text}</span></div>`).join("")
+    ? top.map((f, i) => `<div class="finding clickable" data-policy-var="${f.varKey}"><span class="fn-badge">${i + 1}</span><span>${f.text}</span></div>`).join("")
     : `<div class="finding"><span>No gaps at or above this threshold were found for the selected theme. Try lowering the minimum gap.</span></div>`;
+  document.querySelectorAll('#policyFindings [data-policy-var]').forEach(el => {
+    el.addEventListener("click", () => goToIndicatorView(el.dataset.policyVar));
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -637,6 +723,146 @@ function renderMethodology() {
     const blob = new Blob([txt], { type: "text/plain" });
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "codebook_reference.txt"; a.click();
   });
+}
+
+// ---------------------------------------------------------------------------
+// ASK THE DATA — assistant + Q&A Centre (shared fixed-rule query engine)
+// ---------------------------------------------------------------------------
+let qaChartCounter = 0;
+
+function qaCtx() {
+  return {
+    records: APP.records, indicators: APP.indicators,
+    regionNames: [...new Set(APP.records.map(r => r.region).filter(Boolean))],
+    applyFilters, weightedDistribution, weightedFavorable, groupFavorable,
+  };
+}
+
+/** Render one answer object (from qaAnswer or a special question) into a DOM node. Returns the node. */
+function renderAnswerNode(ans) {
+  const uid = "qac_" + (qaChartCounter++);
+  const wrap = document.createElement("div");
+  if (!ans.ok) {
+    wrap.innerHTML = `<div>${ans.message}</div>` + (ans.suggestions ? `<div class="qa-actions">${ans.suggestions.map(s => `<span class="pill">${s}</span>`).join("")}</div>` : "");
+    return wrap;
+  }
+  wrap.innerHTML = `
+    <div>${ans.narrative}</div>
+    ${ans.question ? `<div class="qa-note">Survey question: "${ans.question}"</div>` : ""}
+    <div class="qa-chart-box"><canvas id="${uid}"></canvas></div>
+    ${ans.varKey ? `<div class="qa-actions"><button class="btn" data-open-var="${ans.varKey}">Open in Indicator Explorer →</button></div>` : ""}
+  `;
+  setTimeout(() => {
+    const el = wrap.querySelector(`#${uid}`);
+    if (el) makeChart(uid, barConfig(ans.chart.labels, ans.chart.data, { horizontal: ans.chart.horizontal, colors: PALETTE[0] }));
+    const btn = wrap.querySelector("[data-open-var]");
+    if (btn) btn.addEventListener("click", () => { goToIndicatorView(btn.dataset.openVar, ans.filters); document.getElementById("assistPanel").classList.remove("open"); });
+  }, 0);
+  return wrap;
+}
+
+const ASSIST_SUGGESTIONS = [
+  "Which region trusts the police least?",
+  "Do young people use the internet more?",
+  "What's the biggest problem facing the country?",
+  "How do men and women differ on job priority?",
+  "Which region is most positive about direction?",
+];
+
+function initAssistant() {
+  const fab = document.getElementById("assistFab"), panel = document.getElementById("assistPanel");
+  fab.addEventListener("click", () => panel.classList.toggle("open"));
+  document.getElementById("assistClose").addEventListener("click", () => panel.classList.remove("open"));
+
+  document.getElementById("assistSuggestRow").innerHTML = ASSIST_SUGGESTIONS.slice(0, 3).map(s => `<span class="pill">${s}</span>`).join("");
+  document.querySelectorAll("#assistSuggestRow .pill").forEach(p => p.addEventListener("click", () => runAssistantQuery(p.textContent)));
+
+  // Greeting
+  const body = document.getElementById("assistBody");
+  const greet = document.createElement("div");
+  greet.className = "assist-msg bot";
+  greet.innerHTML = "Ask me anything about the Ghana Round 10 survey — a topic, a region, a demographic group, or a comparison. I run fixed calculations over the real microdata, so every answer is traceable.";
+  body.appendChild(greet);
+
+  document.getElementById("assistSend").addEventListener("click", sendFromInput);
+  document.getElementById("assistInput").addEventListener("keydown", (e) => { if (e.key === "Enter") sendFromInput(); });
+  function sendFromInput() {
+    const input = document.getElementById("assistInput");
+    if (!input.value.trim()) return;
+    runAssistantQuery(input.value.trim());
+    input.value = "";
+  }
+}
+
+function runAssistantQuery(text) {
+  const body = document.getElementById("assistBody");
+  const userMsg = document.createElement("div");
+  userMsg.className = "assist-msg user";
+  userMsg.textContent = text;
+  body.appendChild(userMsg);
+
+  const ans = qaAnswer(text, qaCtx());
+  const botMsg = document.createElement("div");
+  botMsg.className = "assist-msg bot";
+  botMsg.appendChild(renderAnswerNode(ans));
+  body.appendChild(botMsg);
+  body.scrollTop = body.scrollHeight;
+}
+
+function initQACentre() {
+  document.getElementById("qaSuggestChips").innerHTML = ASSIST_SUGGESTIONS.map(s => `<span class="pill">${s}</span>`).join("");
+  document.querySelectorAll("#qaSuggestChips .pill").forEach(p => p.addEventListener("click", () => runQACentreQuery(p.textContent)));
+  document.getElementById("qaSearchBtn").addEventListener("click", () => {
+    const input = document.getElementById("qaSearchInput");
+    if (input.value.trim()) runQACentreQuery(input.value.trim());
+  });
+  document.getElementById("qaSearchInput").addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && e.target.value.trim()) runQACentreQuery(e.target.value.trim());
+  });
+
+  // Cross-cutting special questions
+  const specials = qaSpecialQuestions(qaCtx());
+  document.getElementById("qaSpecialList").innerHTML = specials.map((s, i) => `
+    <details class="qa-item qa-special"><summary>${s.q}</summary><div class="qa-answer" id="qaSpecial_${i}"></div></details>
+  `).join("");
+  specials.forEach((s, i) => {
+    document.querySelectorAll("details.qa-special")[i].addEventListener("toggle", function once() {
+      const container = document.getElementById(`qaSpecial_${i}`);
+      if (container.dataset.rendered) return;
+      container.dataset.rendered = "1";
+      container.appendChild(renderAnswerNode({ ok: true, narrative: s.narrative, chart: s.chart }));
+    });
+  });
+
+  // Per-indicator FAQ grouped by theme (lazy render on open)
+  const themeBlocks = document.getElementById("qaThemeBlocks");
+  themeBlocks.innerHTML = themeList().map(theme => {
+    const items = Object.entries(APP.indicators).filter(([, v]) => v.theme === theme);
+    return `<div class="qa-theme-block">
+      <div class="qa-theme-title">${theme}</div>
+      ${items.map(([key, meta]) => `<details class="qa-item" data-var="${key}"><summary>${meta.question}</summary><div class="qa-answer" id="qaFaq_${key}"></div></details>`).join("")}
+    </div>`;
+  }).join("");
+  themeBlocks.querySelectorAll("details.qa-item").forEach(d => {
+    d.addEventListener("toggle", function () {
+      const key = d.dataset.var;
+      const container = document.getElementById(`qaFaq_${key}`);
+      if (container.dataset.rendered) return;
+      container.dataset.rendered = "1";
+      const ans = qaAnswer(APP.indicators[key].question, qaCtx());
+      container.appendChild(renderAnswerNode(ans));
+    });
+  });
+}
+
+function runQACentreQuery(text) {
+  const container = document.getElementById("qaFreeformAnswers");
+  const block = document.createElement("div");
+  block.className = "card mt-16";
+  block.innerHTML = `<h3>“${text}”</h3>`;
+  const ans = qaAnswer(text, qaCtx());
+  block.appendChild(renderAnswerNode(ans));
+  container.prepend(block);
 }
 
 // ---------------------------------------------------------------------------

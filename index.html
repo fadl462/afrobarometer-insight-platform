@@ -36,6 +36,7 @@
 
       <div class="nav-group-label">Synthesize</div>
       <button class="nav-item" data-view="policy"><span class="dot"></span>Policy Insight Centre</button>
+      <button class="nav-item" data-view="qa"><span class="dot"></span>Ask the Data</button>
 
       <div class="nav-group-label">Reference</div>
       <button class="nav-item" data-view="methodology"><span class="dot"></span>Methodology &amp; Downloads</button>
@@ -76,7 +77,7 @@
           <div class="finding-list" id="execInsights"></div>
         </div>
         <div class="card">
-          <h3>Top problems citizens want government to address</h3>
+          <h3>Top problems citizens want government to address <span class="faint small">(click to explore)</span></h3>
           <div class="rank-list" id="execMip"></div>
           <p class="small faint mt-12">First-mentioned response to the open "most important problem" question, Q46. Respondents could name up to three; ranked here by share naming each as their top concern.</p>
         </div>
@@ -84,12 +85,12 @@
 
       <div class="grid cols-2 mt-16">
         <div class="card">
-          <h3>Direction of the country, by region</h3>
-          <div class="chart-box"><canvas id="execRegionChart"></canvas></div>
+          <h3>Direction of the country, by region <span class="faint small">(click a bar to drill in)</span></h3>
+          <div class="chart-box"><canvas id="execRegionChart" class="chart-clickable"></canvas></div>
         </div>
         <div class="card">
-          <h3>Trust in institutions — national average</h3>
-          <div class="chart-box"><canvas id="execTrustChart"></canvas></div>
+          <h3>Trust in institutions — national average <span class="faint small">(click a bar to explore)</span></h3>
+          <div class="chart-box"><canvas id="execTrustChart" class="chart-clickable"></canvas></div>
         </div>
       </div>
     </section>
@@ -166,10 +167,12 @@
         <div class="card">
           <h3>Distribution of responses <span class="faint small" id="indDistN"></span></h3>
           <div class="chart-box tall"><canvas id="indDistChart"></canvas></div>
+          <div id="indDistTable"></div>
         </div>
         <div class="card">
-          <h3>Regional comparison <span class="faint small" id="indRegionMetric"></span></h3>
-          <div class="chart-box tall"><canvas id="indRegionChart"></canvas></div>
+          <h3>Regional comparison <span class="faint small" id="indRegionMetric"></span> <span class="faint small">(click a bar to filter)</span></h3>
+          <div class="chart-box tall"><canvas id="indRegionChart" class="chart-clickable"></canvas></div>
+          <div id="indRegionTable"></div>
         </div>
       </div>
 
@@ -329,6 +332,30 @@
       </div>
     </section>
 
+    <!-- ============================= ASK THE DATA ======================== -->
+    <section class="view" id="view-qa">
+      <div class="view-head">
+        <div class="view-eyebrow">Query the microdata directly</div>
+        <h1 class="view-title">Ask the Data</h1>
+        <p class="view-desc">Type a question in plain language, or browse the auto-generated FAQ below — every entry is one survey question with its wording and computed answer, organized by theme. This is a <b>fixed-rule query engine</b> over the weighted microdata (keyword + demographic matching), not a generative AI model — every answer traces back to an exact calculation, the same engine that powers the floating assistant on every page.</p>
+      </div>
+
+      <div class="qa-searchbar">
+        <input type="text" id="qaSearchInput" placeholder="e.g. “Which region trusts the police least?” or “Do young people use the internet more?”">
+        <button class="btn primary" id="qaSearchBtn">Ask</button>
+      </div>
+      <div class="pill-group mt-8" id="qaSuggestChips" style="margin-bottom:20px;"></div>
+
+      <div id="qaFreeformAnswers"></div>
+
+      <div id="qaSpecialBlock" class="qa-theme-block">
+        <div class="qa-theme-title">Cross-cutting questions</div>
+        <div id="qaSpecialList"></div>
+      </div>
+
+      <div id="qaThemeBlocks"></div>
+    </section>
+
     <!-- ========================= METHODOLOGY / DOWNLOADS ================== -->
     <section class="view" id="view-methodology">
       <div class="view-head">
@@ -378,6 +405,27 @@
   </main>
 </div>
 
+<!-- ============================ ASSISTANT WIDGET ============================ -->
+<button class="assist-fab" id="assistFab" aria-label="Ask the data">
+  💬<span class="fab-badge">ASK</span>
+</button>
+<div class="assist-panel" id="assistPanel">
+  <div class="assist-head">
+    <div>
+      <div class="ah-title">Ask the data</div>
+      <div class="ah-sub">Fixed-rule query engine · Ghana R10 microdata</div>
+    </div>
+    <button id="assistClose" aria-label="Close">✕</button>
+  </div>
+  <div class="assist-suggest-row" id="assistSuggestRow"></div>
+  <div class="assist-body" id="assistBody"></div>
+  <div class="assist-input-row">
+    <input type="text" id="assistInput" placeholder="Ask about the survey…">
+    <button id="assistSend" aria-label="Send">➤</button>
+  </div>
+</div>
+
+<script src="js/qa-engine.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>
