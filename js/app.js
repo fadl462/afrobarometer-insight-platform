@@ -406,15 +406,33 @@ function renderExecutive() {
     el.addEventListener("click", () => goToCompareView(kpis[i].varKey));
   });
 
-  const tickerItems = [
-    `n=<b>${APP.continental.n_total}</b> respondents`, `<b>${APP.continental.n_countries}</b> countries`,
-    `Support democracy: <b>${fmtPct(h.support_democracy_pct)}</b>`,
-    `Trust president: <b>${fmtPct(h.trust_president_pct)}</b>`,
-    `Trust police: <b>${fmtPct(h.trust_police_pct)}</b>`,
-    `Corruption seen as worsening: <b>${fmtPct(h.corruption_worsened_pct)}</b>`,
-    `Internet access: <b>${fmtPct(h.internet_access_pct)}</b>`,
-  ];
-  document.getElementById("execTicker").innerHTML = tickerItems.concat(tickerItems).map(t => `<span>${t}</span>`).join("");
+  // Build the ticker only once per session: renderExecutive() re-runs every time the user
+  // navigates back to this view, and resetting innerHTML each time would restart the CSS
+  // marquee animation from frame zero. Guarding it keeps the animation running continuously
+  // across in-app navigation. A sessionStorage-backed negative animation-delay additionally
+  // keeps it looking continuous across a manual page refresh within the same browser session.
+  if (!APP._tickerInit) {
+    APP._tickerInit = true;
+    const tickerItems = [
+      `n=<b>${APP.continental.n_total}</b> respondents`, `<b>${APP.continental.n_countries}</b> countries`,
+      `Support democracy: <b>${fmtPct(h.support_democracy_pct)}</b>`,
+      `Trust president: <b>${fmtPct(h.trust_president_pct)}</b>`,
+      `Trust police: <b>${fmtPct(h.trust_police_pct)}</b>`,
+      `Corruption seen as worsening: <b>${fmtPct(h.corruption_worsened_pct)}</b>`,
+      `Internet access: <b>${fmtPct(h.internet_access_pct)}</b>`,
+    ];
+    const tickerEl = document.getElementById("execTicker");
+    tickerEl.innerHTML = tickerItems.concat(tickerItems).map(t => `<span>${t}</span>`).join("");
+
+    const TICKER_DURATION_S = 32; // must match the CSS animation-duration on .ticker
+    let startTs = parseInt(sessionStorage.getItem("ab_ticker_start") || "", 10);
+    if (!startTs) {
+      startTs = Date.now();
+      sessionStorage.setItem("ab_ticker_start", String(startTs));
+    }
+    const elapsedS = ((Date.now() - startTs) / 1000) % TICKER_DURATION_S;
+    tickerEl.style.animationDelay = `-${elapsedS}s`;
+  }
 
   const insights = [];
   if (h.econ_condition_positive_pct < 30) insights.push(`Only ${fmtPct(h.econ_condition_positive_pct)} of respondents across the continent rate their country's economic condition positively — a strong signal of widespread economic strain.`);
