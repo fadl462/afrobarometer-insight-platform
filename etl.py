@@ -1,324 +1,398 @@
 #!/usr/bin/env python3
 """
-Afrobarometer Ghana Round 10 - ETL
-Source CSV uses value LABELS (strings), not numeric codes.
-Converts raw CSV microdata into structured JSON for the Insight Platform.
-Labels verified against: AB_R10.Codebook_Ghana_30June25.pdf (Afrobarometer, official, 25 Jul 2025).
-"""
-import csv, json, os, re, collections
+Afrobarometer Round 9 Merged Dataset (39 countries) — ETL
+Source: R9_Merge_39ctry_20Nov23_final__release_Updated_4Jun25-3.sav
+        (official file from https://www.afrobarometer.org/data/merged-data/)
 
-SRC = "GHA_R10.Data_03Oct24.wtd.final.release_updated.13Feb25.csv"  # place the raw Afrobarometer CSV export alongside this script
+Produces a compact, columnar (structure-of-arrays), integer-coded JSON so a
+53,444-respondent x ~90-indicator dataset stays small enough to ship to a
+browser. Every indicator's value labels are pulled programmatically from the
+.sav file's own embedded metadata (meta.variable_value_labels), so there is
+no hand-typed label that could mismatch the source data.
+"""
+import json, os, re
+import pyreadstat
+import numpy as np
+import pandas as pd
+
+SRC = "R9_Merge_39ctry_20Nov23_final__release_Updated_4Jun25-3.sav"
 OUT_DIR = "data"
 os.makedirs(OUT_DIR, exist_ok=True)
 
-NON_SUBSTANTIVE = {
-    "", "refused", "refused to answer", "refused to answer.", "don't know",
-    "don't know/haven't heard enough to say", "don't know / haven't heard enough to say",
-    "don't know/ haven't heard", "don't know or haven't heard enough to say",
-    "not applicable", "not asked in country", "not asked in the country",
-    "no further reply", "missing", "does not know",
-}
+NON_SUBSTANTIVE_PAT = re.compile(
+    r"^(missing|refused|refused to answer|don'?[’]?t know.*|not applicable|"
+    r"not asked in (the )?country|no further reply|does not know|"
+    r"do not understand.*|not sure|inap\.?)$", re.IGNORECASE)
 
-def norm(s):
-    return re.sub(r"\s+", " ", s).strip().lower().replace("’", "'")
+def is_substantive(label):
+    return label is not None and not NON_SUBSTANTIVE_PAT.match(str(label).strip())
 
-def clean(raw):
-    if raw is None:
-        return None
-    s = raw.strip()
-    if norm(s) in NON_SUBSTANTIVE or norm(s).startswith("don't know") or norm(s).startswith("refused"):
-        return None
-    return s
+print("Loading .sav (metadata)...")
+_, meta = pyreadstat.read_sav(SRC, metadataonly=True)
+VVL = meta.variable_value_labels  # {varname: {code(float): label}}
 
-def age_group(age):
-    if age is None: return None
-    try:
-        a = int(age)
-    except ValueError:
-        return None
-    if a < 18: return None
-    if a <= 25: return "18-25"
-    if a <= 35: return "26-35"
-    if a <= 45: return "36-45"
-    if a <= 55: return "46-55"
-    if a <= 65: return "56-65"
-    return "66+"
+print("Loading .sav (full data, labelled)...")
+df, _ = pyreadstat.read_sav(SRC, apply_value_formats=True, formats_as_category=False)
+print("Loaded", df.shape)
 
-def edu_group(v):
-    if v is None: return None
-    v = norm(v)
-    if "no formal" in v: return "No formal schooling"
-    if "informal" in v: return "No formal schooling"
-    if "primary" in v: return "Primary"
-    if "intermediate" in v or "some secondary" in v or ("secondary" in v and "post" not in v): return "Secondary"
-    if "post-secondary" in v: return "Post-secondary (non-university)"
-    if "university" in v or "post-graduate" in v: return "University"
-    return None
-
-def employ_group(v):
-    if v is None: return None
-    v = norm(v)
-    if "not looking" in v: return "Not in labour force"
-    if "looking" in v: return "Unemployed, looking for work"
-    if "part time" in v: return "Employed, part-time"
-    if "full time" in v: return "Employed, full-time"
-    return None
-
-def religion_group(v):
-    if v is None: return "No religion / not stated"
-    v = norm(v)
-    if v == "none": return "No religion / not stated"
-    if "traditional" in v: return "Traditional / ethnic religion"
-    if "muslim" in v or "sunni" in v or "ismaeli" in v or "brotherhood" in v or "shia" in v:
-        return "Muslim"
-    if "agnostic" in v or "atheist" in v: return "No religion / not stated"
-    return "Christian"
-
-MAJOR_ETHNIC = {"akan", "ewe/anlo", "dagomba", "ga/adangbe", "gurma", "frafra",
-                "gonja", "dagaare", "kusaal", "grusi", "sisala", "mande", "guan",
-                "hausa", "buli", "waale"}
-
-def ethnicity_group(v):
-    if v is None: return None
-    vn = norm(v)
-    if "national identity" in vn: return "Ghanaian identity only"
-    if vn in MAJOR_ETHNIC:
-        return v.strip()
-    return "Other / smaller groups"
-
-def to_num(v):
-    if v is None: return None
-    try:
-        return float(v)
-    except ValueError:
-        return None
-
-def lpi_cat(nums):
-    avg = sum(nums) / 5.0
-    if avg == 0: cat = "No lived poverty"
-    elif avg <= 1.0: cat = "Low lived poverty"
-    elif avg <= 2.0: cat = "Moderate lived poverty"
-    else: cat = "High lived poverty"
-    return round(avg, 3), cat
-
-REGION_TITLE = {
-    "WESTERN": "Western", "WESTERN NORTH": "Western North", "CENTRAL": "Central",
-    "GREATER ACCRA": "Greater Accra", "VOLTA": "Volta", "OTI": "Oti",
-    "EASTERN": "Eastern", "ASHANTI": "Ashanti", "AHAFO": "Ahafo", "BONO": "Bono",
-    "BONO EAST": "Bono East", "NORTHERN": "Northern", "SAVANNAH": "Savannah",
-    "NORTH EAST": "North East", "UPPER EAST": "Upper East", "UPPER WEST": "Upper West",
-}
+def ordered_labels(varname):
+    """Return substantive value labels for `varname`, in ascending-code order, as they'd appear formatted."""
+    vl = VVL.get(varname, {})
+    items = sorted(vl.items(), key=lambda kv: kv[0])
+    return [lab for code, lab in items if is_substantive(lab)]
 
 # ---------------------------------------------------------------------------
-FREQ4 = ["Never", "Just once or twice", "Several times", "Many times", "Always"]
-HAND4 = ["Very badly", "Fairly badly", "Fairly well", "Very well"]
-TRUST4 = ["Not at all", "Just a little", "Somewhat", "A lot"]
-CORR4 = ["None", "Some of them", "Most of them", "All of them"]
-AGREE5 = ["Strongly disagree", "Disagree", "Neither Agree nor disagree", "Agree", "Strongly agree"]
-FREQ4B = ["Never", "Once or twice", "A few times", "Often"]
-USE5 = ["Never", "Less than once a month", "A few times a month", "A few times a week", "Every day"]
+# Indicator registry. Each entry:
+#   theme, label (short title), question (paraphrase of official wording),
+#   positive: list of label strings counted as "favourable" (or None if nominal)
+# `order` is NOT hand-typed — it's derived from ordered_labels(var) at build time.
+# ---------------------------------------------------------------------------
+INDICATOR_DEFS = {
+ # --- Direction & Economy ---
+ "Q3":  ("Direction & Economy", "Direction of the country", "Would you say the country is going in the wrong direction or the right direction?", ["Going in the right direction"]),
+ "Q4A": ("Direction & Economy", "Country's present economic condition", "In general, how would you describe the present economic condition of this country?", ["Fairly good", "Very good"]),
+ "Q4B": ("Direction & Economy", "Your present living conditions", "In general, how would you describe your own present living conditions?", ["Fairly good", "Very good"]),
+ "Q5A": ("Direction & Economy", "Economic condition vs 12 months ago", "How do you rate economic conditions in this country compared to 12 months ago?", ["Better", "Much better"]),
+ "Q5B": ("Direction & Economy", "Economic outlook, next 12 months", "Do you expect economic conditions to be better or worse in 12 months' time?", ["Better", "Much better"]),
 
-INDICATORS = {
- "Q3":  {"theme":"Direction & Economy","label":"Direction of the country","question":"Would you say the country is going in the wrong direction or the right direction?","order":["Going in the wrong direction","Going in the right direction"],"positive":["Going in the right direction"]},
- "Q4A": {"theme":"Direction & Economy","label":"Country's present economic condition","question":"In general, how would you describe the present economic condition of this country?","order":["Very bad","Fairly bad","Neither good nor bad","Fairly good","Very good"],"positive":["Fairly good","Very good"]},
- "Q4B": {"theme":"Direction & Economy","label":"Your present living conditions","question":"In general, how would you describe your own present living conditions?","order":["Very bad","Fairly bad","Neither good nor bad","Fairly good","Very good"],"positive":["Fairly good","Very good"]},
- "Q5A": {"theme":"Direction & Economy","label":"Economic condition vs 12 months ago","question":"Looking back, how do you rate economic conditions in this country compared to 12 months ago?","order":["Much worse","Worse","Same","Better","Much better"],"positive":["Better","Much better"]},
- "Q6":  {"theme":"Direction & Economy","label":"Economic outlook, next 12 months","question":"Looking ahead, do you expect economic conditions in this country to be better or worse in 12 months' time?","order":["Much worse","Worse","Same","Better","Much better"],"positive":["Better","Much better"]},
- "Q7A": {"theme":"Lived Poverty","label":"Gone without food","question":"Over the past year, how often, if ever, have you or your family gone without enough food to eat?","order":FREQ4,"positive":["Never"]},
- "Q7B": {"theme":"Lived Poverty","label":"Gone without clean water","question":"...gone without enough clean water for home use?","order":FREQ4,"positive":["Never"]},
- "Q7C": {"theme":"Lived Poverty","label":"Gone without medical care","question":"...gone without medicines or medical treatment?","order":FREQ4,"positive":["Never"]},
- "Q7D": {"theme":"Lived Poverty","label":"Gone without cooking fuel","question":"...gone without enough fuel to cook food?","order":FREQ4,"positive":["Never"]},
- "Q7E": {"theme":"Lived Poverty","label":"Gone without a cash income","question":"...gone without a cash income?","order":FREQ4,"positive":["Never"]},
- "Q10A":{"theme":"Democracy","label":"Freedom to say what you think","question":"In this country, how free are you to say what you think?","order":["Not at all free","Not very free","Somewhat free","Completely free"],"positive":["Somewhat free","Completely free"]},
- "Q22": {"theme":"Democracy","label":"Support for democracy","question":"Which is closest to your view? (1) doesn't matter what government we have; (2) non-democratic government can be preferable; (3) democracy is preferable to any other kind of government.","order":["STATEMENT 3: For someone like me, it doesn’t matter what kind of government we have.","STATEMENT 2: In some circumstances, a non-democratic government can be preferable.","STATEMENT 1: Democracy is preferable to any other kind of government."],"positive":["STATEMENT 1: Democracy is preferable to any other kind of government."],"short_labels":{"STATEMENT 3: For someone like me, it doesn’t matter what kind of government we have.":"Doesn't matter","STATEMENT 2: In some circumstances, a non-democratic government can be preferable.":"Non-democratic OK sometimes","STATEMENT 1: Democracy is preferable to any other kind of government.":"Democracy preferable"}},
- "Q32": {"theme":"Democracy","label":"Extent of democracy today","question":"In your opinion how much of a democracy is Ghana today?","order":["Not a democracy","A democracy, with major problems","A democracy, but with minor problems","A full democracy"],"positive":["A democracy, but with minor problems","A full democracy"]},
- "Q33": {"theme":"Democracy","label":"Satisfaction with democracy","question":"Overall, how satisfied are you with the way democracy works in Ghana?","order":["The country is not a democracy","Not at all satisfied","Not very satisfied","Fairly satisfied","Very satisfied"],"positive":["Fairly satisfied","Very satisfied"]},
- "Q29": {"theme":"Democracy","label":"Presidential term limits","question":"Statement 1: the Constitution should limit the president to two terms. Statement 2: there should be no limit.","order":["Agree with 1","Agree with 2","Agree with neither"],"positive":["Agree with 1"],"short_labels":{"Agree with 1":"Two-term limit","Agree with 2":"No term limits","Agree with neither":"Neither"}},
- "Q15": {"theme":"Elections","label":"Freeness & fairness of last election","question":"On the whole, how would you rate the freeness and fairness of the last national election (Dec 2020)?","order":["Not free and fair","Free and fair, but with major problems","Free and fair, but with minor problems","Completely free and fair"],"positive":["Free and fair, but with minor problems","Completely free and fair"]},
- "Q13A":{"theme":"Elections","label":"Voted in most recent national election","question":"In the last national election, did you vote, or not?","order":["I did not vote","I was too young to vote","I can’t remember whether I voted","I voted in the election"],"positive":["I voted in the election"]},
- "Q34C":{"theme":"Governance","label":"Judges/magistrates favor political influence over law","question":"How often do judges and magistrates favor political considerations over the law?","order":FREQ4[:4],"positive":["Never","Rarely"]},
- "Q34D":{"theme":"Governance","label":"People treated unequally under the law","question":"How often are people treated unequally under the law?","order":FREQ4[:4],"positive":["Never","Rarely"]},
- "Q35": {"theme":"Governance","label":"Freedom of the news media","question":"How free is the news media to report and comment on the news without government censorship?","order":["Not at all free","Not very free","Somewhat free","Completely free"],"positive":["Somewhat free","Completely free"]},
- "Q48A":{"theme":"Governance","label":"Approval: President's performance","question":"Do you approve or disapprove of the way the President has performed over the past 12 months?","order":["Strongly disapprove","Disapprove","Approve","Strongly approve"],"positive":["Approve","Strongly approve"]},
- "Q48B":{"theme":"Governance","label":"Approval: your Member of Parliament","question":"Do you approve or disapprove of the way your MP has performed?","order":["Strongly disapprove","Disapprove","Approve","Strongly approve"],"positive":["Approve","Strongly approve"]},
- "Q47A":{"theme":"Governance","label":"Handling: managing the economy","question":"How well or badly is the government handling: managing the economy?","order":HAND4,"positive":["Fairly well","Very well"]},
- "Q47C":{"theme":"Governance","label":"Handling: creating jobs","question":"How well or badly is the government handling: creating jobs?","order":HAND4,"positive":["Fairly well","Very well"]},
- "Q47J":{"theme":"Governance","label":"Handling: fighting corruption","question":"How well or badly is the government handling: fighting corruption?","order":HAND4,"positive":["Fairly well","Very well"]},
- "Q47G":{"theme":"Governance","label":"Handling: basic health services","question":"How well or badly is the government handling: improving basic health services?","order":HAND4,"positive":["Fairly well","Very well"]},
- "Q47H":{"theme":"Governance","label":"Handling: educational needs","question":"How well or badly is the government handling: addressing educational needs?","order":HAND4,"positive":["Fairly well","Very well"]},
- "Q47L":{"theme":"Governance","label":"Handling: electricity supply","question":"How well or badly is the government handling: providing a reliable supply of electricity?","order":HAND4,"positive":["Fairly well","Very well"]},
- "Q38A":{"theme":"Corruption","label":"Corruption: Office of the Presidency","question":"How many of the following do you think are involved in corruption: the President and officials in his office?","order":CORR4,"positive":["None","Some of them"]},
- "Q38B":{"theme":"Corruption","label":"Corruption: Members of Parliament","question":"...Members of Parliament?","order":CORR4,"positive":["None","Some of them"]},
- "Q38E":{"theme":"Corruption","label":"Corruption: Police","question":"...the Police?","order":CORR4,"positive":["None","Some of them"]},
- "Q38G":{"theme":"Corruption","label":"Corruption: Tax officials","question":"...Tax officials?","order":CORR4,"positive":["None","Some of them"]},
- "Q39A":{"theme":"Corruption","label":"Change in corruption, past year","question":"Over the past year, has the level of corruption increased, decreased, or stayed the same?","order":["Increased a lot","Increased somewhat","Stayed the same","Decreased somewhat","Decreased a lot"],"positive":["Decreased somewhat","Decreased a lot"]},
- "Q39B":{"theme":"Corruption","label":"Can report corruption without fear","question":"Can ordinary people report corruption without fear, or do they risk retaliation?","order":["Can report without fear","Risk retaliation or other negative consequences"],"positive":["Can report without fear"]},
- "Q37A":{"theme":"Trust","label":"Trust: the President","question":"How much do you trust the President?","order":TRUST4,"positive":["Somewhat","A lot"]},
- "Q37B":{"theme":"Trust","label":"Trust: Parliament","question":"How much do you trust Parliament?","order":TRUST4,"positive":["Somewhat","A lot"]},
- "Q37C":{"theme":"Trust","label":"Trust: Electoral Commission","question":"How much do you trust the National Electoral Commission?","order":TRUST4,"positive":["Somewhat","A lot"]},
- "Q37G":{"theme":"Trust","label":"Trust: the Police","question":"How much do you trust the Police?","order":TRUST4,"positive":["Somewhat","A lot"]},
- "Q37I":{"theme":"Trust","label":"Trust: the Courts","question":"How much do you trust the Courts of Law?","order":TRUST4,"positive":["Somewhat","A lot"]},
- "Q37K":{"theme":"Trust","label":"Trust: Traditional leaders","question":"How much do you trust Traditional leaders?","order":TRUST4,"positive":["Somewhat","A lot"]},
- "Q37M":{"theme":"Trust","label":"Trust: NGOs / civil society","question":"How much do you trust Non-Governmental Organisations?","order":TRUST4,"positive":["Somewhat","A lot"]},
- "Q49B":{"theme":"Gender","label":"Men should have more right to a job than women","question":"When jobs are scarce, men should have more right to a job than women. Agree or disagree?","order":AGREE5,"positive":["Strongly disagree","Disagree"]},
- "Q51": {"theme":"Gender","label":"Women's chances for political leadership","question":"Statement 1: men make better leaders and should be elected over women. Statement 2: women should have the same chance of election as men.","order":["Agree with 1","Agree with 2","Agree with neither"],"positive":["Agree with 2"],"short_labels":{"Agree with 1":"Men make better leaders","Agree with 2":"Equal chance for women","Agree with neither":"Neither"}},
- "Q53A":{"theme":"Gender","label":"Police/courts protect women & girls","question":"Are police and courts doing enough to protect women and girls, or do they need to do more?","order":["Need to do much more","Need to do somewhat more","Doing enough"],"positive":["Doing enough"]},
- "Q86C":{"theme":"Gender","label":"Girls should continue school through pregnancy","question":"Girls who become pregnant should be able to continue their education. Agree or disagree?","order":AGREE5,"positive":["Agree","Strongly agree"]},
- "Q86D":{"theme":"Gender","label":"Sex education should be taught in schools","question":"Sex education should be taught in schools. Agree or disagree?","order":AGREE5,"positive":["Agree","Strongly agree"]},
- "Q50": {"theme":"Youth","label":"Top priority for youth investment","question":"Which of these should be the top priority for government investment in youth programs?","order":["Job creation","Education","Jobs training","Access to business loans","Social services for youth, for example, to improve health and prevent drug abuse","None of the above/some other programs","Government should not increase its spending on programs to help young people"],"positive":None},
- "Q94D":{"theme":"Youth","label":"Main barrier to youth employment","question":"What is the main barrier keeping young people from finding employment?","order":["Youth do not face barriers to getting employment","Lack of adequate training or preparation","Lack of experience required by employers","Youth are unwilling to work certain jobs (e.g., in agriculture or difficult jobs)","Youth lack of entrepreneurial skills or motivation","There is a mismatch between education qualifications and job requirements","Some other barrier"],"positive":None},
- "Q40A":{"theme":"Public Services","label":"Contact with public clinic/hospital (12 mo.)","question":"In the past 12 months, have you had contact with a public clinic or hospital?","order":["No","Yes"],"positive":None},
- "Q40B":{"theme":"Public Services","label":"Ease of obtaining medical care","question":"How easy or difficult was it to obtain the medical care you needed?","order":["Very easy","Easy","Difficult","Very Difficult"],"positive":["Very easy","Easy"]},
- "Q40C":{"theme":"Public Services","label":"Paid a bribe for medical care","question":"How often did you have to pay a bribe for medical care?","order":FREQ4B,"positive":["Never"]},
- "Q44A":{"theme":"Public Services","label":"Tried to obtain an ID document (12 mo.)","question":"In the past 12 months, have you tried to obtain an identity document (birth certificate, passport, voter's card, etc.)?","order":["No","Yes"],"positive":None},
- "Q44B":{"theme":"Public Services","label":"Ease of obtaining an ID document","question":"How easy or difficult was it to obtain the document you needed?","order":["Very easy","Easy","Difficult","Very Difficult"],"positive":["Very easy","Easy"]},
- "Q93A":{"theme":"Infrastructure","label":"Electric connection from the grid","question":"Do you have an electric connection to your home from the national grid?","order":["No","Yes"],"positive":["Yes"]},
- "Q93B":{"theme":"Infrastructure","label":"Reliability of electricity supply","question":"How often is electricity actually available from this connection?","order":["Never","Occasionally","About half of the time","Most of the time","All of the time"],"positive":["Most of the time","All of the time"]},
- "Q92": {"theme":"Infrastructure","label":"Main source of drinking water","question":"What is your main source of water for household use?","order":["Piped public or community water system","Tubewell or borehole","Dug well that is protected","Dug well that is not protected","Spring that is protected","Spring that is unprotected","Rainwater","Bottled water","Purchased from a cart or truck","Surface water, like a river, dam, lake, pond, stream, canal, or irrigation channel"],"positive":["Piped public or community water system","Tubewell or borehole","Dug well that is protected","Spring that is protected","Bottled water"]},
- "Q90H":{"theme":"Digital Access","label":"Mobile phone has internet access","question":"Does your phone have access to the internet?","order":["No (Does not have Internet access)","Yes (Has Internet access)"],"positive":["Yes (Has Internet access)"]},
- "Q90J":{"theme":"Digital Access","label":"Frequency of internet use","question":"How often do you use the internet?","order":USE5,"positive":["A few times a week","Every day"]},
- "Q90G":{"theme":"Digital Access","label":"Owns a mobile money account","question":"Do you personally own a mobile money account?","order":["No, no one in the household owns","Someone else in household owns","Yes (personally owns)"],"positive":["Yes (personally owns)"]},
- "Q65A":{"theme":"Media","label":"Get news from radio","question":"How often do you get news from the radio?","order":USE5,"positive":["A few times a week","Every day"]},
- "Q65D":{"theme":"Media","label":"Get news from social media","question":"How often do you get news from social media (Facebook, WhatsApp, etc.)?","order":USE5,"positive":["A few times a week","Every day"]},
- "Q60A":{"theme":"Climate","label":"Heard of climate change","question":"Have you heard about climate change?","order":["No","Yes"],"positive":["Yes"]},
- "Q60B":{"theme":"Climate","label":"Climate change making life worse","question":"Do you think climate change is making life in Ghana better or worse?","order":["Much better","Somewhat better","Neither/ no change / about the same","Somewhat worse","Much worse"],"positive":["Somewhat worse","Much worse"]},
- "Q62A":{"theme":"Climate","label":"Government must act now on climate change","question":"It is important for our government to take steps now to limit climate change, even if expensive. Agree or disagree?","order":AGREE5,"positive":["Agree","Strongly agree"]},
- "Q59A":{"theme":"Climate","label":"Severity of droughts, past decade","question":"Over the past 10 years, has the severity of droughts increased, decreased, or stayed the same?","order":["Much more severe","Somewhat more severe","Stayed the same","Somewhat less severe","Much less severe"],"positive":None},
- "Q59B":{"theme":"Climate","label":"Severity of flooding, past decade","question":"...severity of flooding?","order":["Much more severe","Somewhat more severe","Stayed the same","Somewhat less severe","Much less severe"],"positive":None},
- "Q9":  {"theme":"Security","label":"Felt unsafe in home / neighbourhood","question":"Over the past year, how often have you or your family felt unsafe walking in your neighbourhood or in your own home?","order":FREQ4,"positive":["Never"]},
- "Q45D":{"theme":"Security","label":"Contact with police (checkpoints, stops etc.)","question":"In the past 12 months, how often have you encountered the police in situations like checkpoints or traffic stops?","order":FREQ4B,"positive":None},
- "Q71A":{"theme":"Migration","label":"Considered emigrating","question":"Have you considered emigrating to another country?","order":["Not at all","A little bit","Somewhat","A lot"],"positive":["Not at all"]},
- "Q66": {"theme":"International","label":"China's economic influence","question":"How much influence do you think China's economic activities have on our economy?","order":["None","A little","Somewhat","A lot"],"positive":None},
- "Q67C":{"theme":"International","label":"Influence of the United States","question":"Is the economic and political influence of the United States on Ghana mostly positive or negative?","order":["Very negative","Somewhat negative","Neither positive nor negative","Somewhat positive","Very positive"],"positive":["Somewhat positive","Very positive"]},
- "Q46PT1":{"theme":"Direction & Economy","label":"Most important problem facing the country","question":"In your opinion, what is the most important problem facing this country that government should address? (first-mentioned response)","order":["Management of the economy","Wages, incomes and salaries","Unemployment","Poverty/ Destitution","Rates and taxes","Loans / Credit","Farming/ Agriculture","Food shortage/ Famine","Infrastructure / Roads","Education","Housing","Electricity","Water supply","Services (other)","Health","Sickness / Disease","Crime and security","Corruption","Political instability/ Political divisions/ Ethnic tensions","Discrimination/ Inequality","Gender issues / Women’s rights","Democracy/ Political rights","Climate change","Increasing cost of living","Nothing/ No problems","Communications","Transportation","Land","Political violence","Agricultural marketing","Orphans/ Street children/ Homeless children"],"positive":None},
+ # --- Lived Poverty ---
+ "Q6A": ("Lived Poverty", "Gone without food", "Over the past year, how often have you or your family gone without enough food to eat?", ["Never"]),
+ "Q6B": ("Lived Poverty", "Gone without clean water", "...gone without enough clean water for home use?", ["Never"]),
+ "Q6C": ("Lived Poverty", "Gone without medical care", "...gone without medicines or medical treatment?", ["Never"]),
+ "Q6D": ("Lived Poverty", "Gone without cooking fuel", "...gone without enough fuel to cook food?", ["Never"]),
+ "Q6E": ("Lived Poverty", "Gone without a cash income", "...gone without a cash income?", ["Never"]),
+
+ # --- Freedoms & Participation ---
+ "Q8":  ("Freedoms & Participation", "Discuss politics", "When you get together with friends or family, how often do you discuss political matters?", ["Frequently"]),
+ "Q9A": ("Freedoms & Participation", "Freedom to say what you think", "How free are you to say what you think?", ["Somewhat free", "Completely free"]),
+ "Q9B": ("Freedoms & Participation", "Freedom to join any political organization", "How free are you to join any political organization?", ["Somewhat free", "Completely free"]),
+ "Q9C": ("Freedoms & Participation", "Freedom to choose who to vote for", "How free are you to choose who to vote for without feeling pressured?", ["Somewhat free", "Completely free"]),
+ "Q10A": ("Freedoms & Participation", "Attended a community meeting", "Have you attended a community meeting in the past year?", ["Yes, once or twice", "Yes, several times", "Yes, often"]),
+ "Q10C": ("Freedoms & Participation", "Attended a demonstration or protest", "Have you attended a demonstration or protest march in the past year?", ["Yes, once or twice", "Yes, several times", "Yes, often"]),
+ "Q13": ("Freedoms & Participation", "Voted in most recent national election", "In the last national election, did you vote, or not?", ["I voted in the election"]),
+ "Q14A": ("Freedoms & Participation", "Freeness & fairness of last election", "How would you rate the freeness and fairness of the last national election?", ["Free and fair, but with minor problems", "Completely free and fair"]),
+
+ # --- Democracy ---
+ "Q22A": ("Democracy", "Reject one-party rule", "Would you disapprove of only one political party being allowed to stand for election?", ["Disapprove", "Strongly disapprove"]),
+ "Q22B": ("Democracy", "Reject military rule", "Would you disapprove of the army coming in to govern the country?", ["Disapprove", "Strongly disapprove"]),
+ "Q22C": ("Democracy", "Reject one-man rule", "Would you disapprove of elections and parliament being abolished so the president can decide everything?", ["Disapprove", "Strongly disapprove"]),
+ "Q23": ("Democracy", "Support for democracy", "Which is closest to your view: democracy is preferable, a non-democratic government can sometimes be preferable, or it doesn't matter?", ["STATEMENT 1: Democracy is preferable to any other kind of government."], {"STATEMENT 1: Democracy is preferable to any other kind of government.": "Democracy preferable", "STATEMENT 2: In some circumstances, a non-democratic government can be preferable.": "Non-democratic OK sometimes", "STATEMENT 3: For someone like me, it doesn’t matter what kind of government we have.": "Doesn't matter"}),
+ "Q24": ("Democracy", "Elections vs other methods of choosing leaders", "Statement 1: leaders should be chosen through regular, open, honest elections. Statement 2: other methods should be used since elections sometimes produce bad results.", ["Agree very strongly with 1", "Agree with 1"], {"Agree very strongly with 1": "Strongly favour elections", "Agree with 1": "Favour elections", "Agree with 2": "Favour other methods", "Agree very strongly with 2": "Strongly favour other methods", "Agree with neither": "Neither"}),
+ "Q26": ("Democracy", "Democracy needs political party turnover", "Statement 1: it's better if power sometimes changes hands between parties. Statement 2: it's fine if one party always wins as long as elections are free and fair.", ["Agree very strongly with 1", "Agree with 1"], {"Agree very strongly with 1": "Strongly favour turnover", "Agree with 1": "Favour turnover", "Agree with 2": "OK if one party always wins", "Agree very strongly with 2": "Strongly OK if one party wins", "Agree with neither": "Neither"}),
+ "Q29A": ("Democracy", "Presidential term limits", "Statement 1: the Constitution should limit the president to two terms. Statement 2: there should be no limit.", ["Agree very strongly with 1", "Agree with 1"], {"Agree very strongly with 1": "Strongly favour two-term limit", "Agree with 1": "Favour two-term limit", "Agree with 2": "Favour no limit", "Agree very strongly with 2": "Strongly favour no limit", "Agree with neither": "Neither"}),
+ "Q30": ("Democracy", "Extent of democracy today", "How much of a democracy is this country today?", ["A democracy, but with minor problems", "A full democracy"]),
+ "Q31": ("Democracy", "Satisfaction with democracy", "Overall, how satisfied are you with the way democracy works in this country?", ["Fairly satisfied", "Very satisfied"]),
+
+ # --- Governance & Accountability ---
+ "Q33E": ("Governance", "People treated unequally under the law", "In your opinion, how often are people treated unequally under the law?", ["Never", "Rarely"]),
+ "Q33F": ("Governance", "Officials who commit crimes go unpunished", "How often do officials who commit crimes go unpunished?", ["Never", "Rarely"]),
+ "Q33H": ("Governance", "Freedom of the news media", "How free is the news media to report and comment on the news without government censorship?", ["Somewhat free", "Completely free"]),
+ "Q34A": ("Governance", "MPs listen to ordinary people", "How much of the time do you think Members of Parliament try their best to listen to what ordinary people have to say?", ["Often", "Always"]),
+ "Q34B": ("Governance", "Local councillors listen to ordinary people", "...local government councillors?", ["Often", "Always"]),
+ "Q47A": ("Governance", "Approval: President's performance", "Do you approve or disapprove of the way the President has performed over the past 12 months?", ["Approve", "Strongly approve"]),
+ "Q47B": ("Governance", "Approval: MP's performance", "Do you approve or disapprove of the way your Member of Parliament has performed?", ["Approve", "Strongly approve"]),
+ "Q47C": ("Governance", "Approval: local councillor's performance", "Do you approve or disapprove of the way your local government councillor has performed?", ["Approve", "Strongly approve"]),
+ "Q46A": ("Governance", "Handling: managing the economy", "How well or badly is the government handling managing the economy?", ["Fairly well", "Very well"]),
+ "Q46C": ("Governance", "Handling: creating jobs", "How well or badly is the government handling creating jobs?", ["Fairly well", "Very well"]),
+ "Q46G": ("Governance", "Handling: basic health services", "How well or badly is the government handling improving basic health services?", ["Fairly well", "Very well"]),
+ "Q46H": ("Governance", "Handling: educational needs", "How well or badly is the government handling addressing educational needs?", ["Fairly well", "Very well"]),
+ "Q46I": ("Governance", "Handling: water and sanitation", "How well or badly is the government handling providing water and sanitation services?", ["Fairly well", "Very well"]),
+ "Q46J": ("Governance", "Handling: fighting corruption", "How well or badly is the government handling fighting corruption?", ["Fairly well", "Very well"]),
+ "Q46L": ("Governance", "Handling: electricity supply", "How well or badly is the government handling providing a reliable supply of electricity?", ["Fairly well", "Very well"]),
+ "Q46P": ("Governance", "Handling: climate change", "How well or badly is the government handling addressing the problem of climate change?", ["Fairly well", "Very well"]),
+
+ # --- Corruption ---
+ "Q38A": ("Corruption", "Corruption: the Presidency", "How many of the following do you think are involved in corruption: the President and officials in his office?", ["None", "Some of them"]),
+ "Q38B": ("Corruption", "Corruption: Members of Parliament", "...Members of Parliament?", ["None", "Some of them"]),
+ "Q38C": ("Corruption", "Corruption: civil servants", "...civil servants?", ["None", "Some of them"]),
+ "Q38E": ("Corruption", "Corruption: police", "...the Police?", ["None", "Some of them"]),
+ "Q38F": ("Corruption", "Corruption: judges and magistrates", "...judges and magistrates?", ["None", "Some of them"]),
+ "Q38G": ("Corruption", "Corruption: tax officials", "...tax officials?", ["None", "Some of them"]),
+ "Q38J": ("Corruption", "Corruption: business executives", "...business executives?", ["None", "Some of them"]),
+ "Q39A": ("Corruption", "Change in corruption, past year", "Over the past year, has the level of corruption increased, decreased, or stayed the same?", ["Decreased somewhat", "Decreased a lot"]),
+ "Q39B": ("Corruption", "Can report corruption without fear", "Can ordinary people report corruption without fear, or do they risk retaliation?", ["Can report without fear"]),
+
+ # --- Trust ---
+ "Q37A": ("Trust", "Trust: the President", "How much do you trust the President?", ["Somewhat", "A lot"]),
+ "Q37B": ("Trust", "Trust: Parliament", "How much do you trust Parliament / the National Assembly?", ["Somewhat", "A lot"]),
+ "Q37C": ("Trust", "Trust: Electoral Commission", "How much do you trust the national Electoral Commission?", ["Somewhat", "A lot"]),
+ "Q37E": ("Trust", "Trust: the ruling party", "How much do you trust the ruling party?", ["Somewhat", "A lot"]),
+ "Q37F": ("Trust", "Trust: opposition parties", "How much do you trust opposition political parties?", ["Somewhat", "A lot"]),
+ "Q37G": ("Trust", "Trust: the Police", "How much do you trust the Police?", ["Somewhat", "A lot"]),
+ "Q37H": ("Trust", "Trust: the Army", "How much do you trust the Army?", ["Somewhat", "A lot"]),
+ "Q37I": ("Trust", "Trust: the Courts", "How much do you trust the Courts of Law?", ["Somewhat", "A lot"]),
+ "Q37J": ("Trust", "Trust: traditional leaders", "How much do you trust traditional leaders?", ["Somewhat", "A lot"]),
+ "Q37K": ("Trust", "Trust: religious leaders", "How much do you trust religious leaders?", ["Somewhat", "A lot"]),
+
+ # --- Public Services ---
+ "Q40A": ("Public Services", "Contact with a public school (12 mo.)", "In the past 12 months, have you had contact with a public school?", ["Yes"]),
+ "Q40C": ("Public Services", "Paid a bribe for school services", "How often did you have to pay a bribe for services from a public school?", ["Never"]),
+ "Q41A": ("Public Services", "Contact with public clinic/hospital (12 mo.)", "In the past 12 months, have you had contact with a public clinic or hospital?", ["Yes"]),
+ "Q41B": ("Public Services", "Ease of obtaining medical care", "How easy or difficult was it to obtain the medical care you needed?", ["Very easy", "Easy"]),
+ "Q41C": ("Public Services", "Paid a bribe for medical care", "How often did you have to pay a bribe for medical care?", ["Never"]),
+ "Q42A": ("Public Services", "Tried to obtain an ID document (12 mo.)", "In the past 12 months, have you tried to obtain an identity document?", ["Yes"]),
+ "Q42B": ("Public Services", "Ease of obtaining an ID document", "How easy or difficult was it to obtain the document you needed?", ["Very easy", "Easy"]),
+ "Q43A": ("Public Services", "Requested police assistance (12 mo.)", "In the past 12 months, have you requested assistance from the police?", ["Yes"]),
+ "Q43C": ("Public Services", "Paid a bribe for police assistance", "How often did you have to pay a bribe to get police assistance?", ["Never"]),
+
+ # --- Gender ---
+ "Q20": ("Gender", "Women's chances for political leadership", "Statement 1: men make better political leaders and should be elected over women. Statement 2: women should have the same chance of election as men.", ["Agree with 2", "Agree very strongly with 2"], {"Agree with 2": "Favour equal chance", "Agree very strongly with 2": "Strongly favour equal chance", "Agree with 1": "Favour men as leaders", "Agree very strongly with 1": "Strongly favour men as leaders", "Agree with neither": "Neither"}),
+ "Q21A": ("Gender", "Men should have more right to a job than women", "When jobs are scarce, men should have more right to a job than women. Agree or disagree?", ["Strongly disagree", "Disagree"]),
+ "Q21B": ("Gender", "Women have equal right to own land", "Women should have the same rights as men to own and inherit land. Agree or disagree?", ["Agree", "Strongly agree"]),
+ "Q49A": ("Gender", "Women and men have equal chance at a paying job", "In our country today, women and men have equal opportunities to get a job that pays a wage or salary. Agree or disagree?", ["Agree", "Strongly agree"]),
+ "Q49B": ("Gender", "Women and men have equal chance to own/inherit land", "...equal opportunities to own and inherit land. Agree or disagree?", ["Agree", "Strongly agree"]),
+ "Q50B": ("Gender", "Women who run for office face criticism", "If a woman in your community runs for elected office, how likely is she to be criticized, called names, or harassed?", ["Very unlikely", "Somewhat unlikely"]),
+
+ # --- Digital Access & Infrastructure ---
+ "Q90F": ("Digital Access", "Owns a mobile phone", "Do you personally own a mobile phone?", ["Yes (personally owns)"]),
+ "Q90G": ("Digital Access", "Mobile phone has internet access", "Does your phone have access to the internet?", ["Yes (Have internet)"]),
+ "Q90I": ("Digital Access", "Frequency of internet use", "How often do you use the internet?", ["A few times a week", "Every day"]),
+ "Q92A": ("Infrastructure", "Electric connection from the grid", "Do you have an electric connection to your home from the national grid?", ["Yes"]),
+ "Q92B": ("Infrastructure", "Reliability of electricity supply", "How often is electricity actually available from this connection?", ["Most of the time", "All of the time"]),
+
+ # --- Media ---
+ "Q74A": ("Media", "Get news from radio", "How often do you get news from the radio?", ["A few times a week", "Every day"]),
+ "Q74D": ("Media", "Get news from the internet", "How often do you get news from the internet?", ["A few times a week", "Every day"]),
+ "Q74E": ("Media", "Get news from social media", "How often do you get news from social media?", ["A few times a week", "Every day"]),
+
+ # --- Climate ---
+ "Q66A": ("Climate", "Severity of droughts, past decade", "Over the past 10 years, has the severity of droughts increased, decreased, or stayed the same?", None),
+ "Q66B": ("Climate", "Severity of flooding, past decade", "...severity of flooding?", None),
+ "Q67A": ("Climate", "Heard of climate change", "Have you heard about climate change?", ["Yes"]),
+ "Q67B": ("Climate", "Climate change making life worse", "Do you think climate change is making life in this country better or worse?", ["Somewhat worse", "Much worse"]),
+ "Q68B": ("Climate", "Government must act now on climate change", "It is important for government to take steps now to limit climate change, even if expensive. Agree or disagree?", ["Agree", "Strongly agree"]),
+
+ # --- International ---
+ "Q77": ("International", "China's economic influence", "How much influence do China's economic activities have on our economy?", None),
+ "Q78A": ("International", "Influence of China", "Is the economic and political influence of China mostly positive or negative?", ["Somewhat positive", "Very positive"]),
+ "Q78B": ("International", "Influence of the United States", "Is the economic and political influence of the United States mostly positive or negative?", ["Somewhat positive", "Very positive"]),
+ "Q78C": ("International", "Influence of Japan", "Is the economic and political influence of Japan mostly positive or negative?", ["Somewhat positive", "Very positive"]),
+ "Q78C1": ("International", "Influence of Russia", "Is the economic and political influence of Russia mostly positive or negative?", ["Somewhat positive", "Very positive"]),
+ "Q78F": ("International", "Influence of the European Union", "Is the economic and political influence of the EU mostly positive or negative?", ["Somewhat positive", "Very positive"]),
+
+ # --- Social Cohesion ---
+ "Q84B": ("Social Cohesion", "Own ethnic group treated unfairly by government", "How often is your ethnic group treated unfairly by the government?", ["Never"]),
+ "Q85A": ("Social Cohesion", "Strong ties with fellow citizens", "I feel strong ties with other citizens of this country. Agree or disagree?", ["Agree", "Strongly agree"]),
+ "Q86A": ("Social Cohesion", "Trust other citizens", "How much do you trust other citizens of this country?", ["Somewhat", "A lot"]),
+ "Q86F": ("Social Cohesion", "Trust people from other ethnic groups", "How much do you trust people from other ethnic groups?", ["Somewhat", "A lot"]),
+ "Q88B": ("Social Cohesion", "Seen as a full citizen by others", "Other citizens think of me as a citizen just like them. Agree or disagree?", ["Agree", "Strongly agree"]),
+
+ # --- Assets ---
+ "Q90A": ("Assets", "Owns a radio", "Do you personally own a radio?", ["Yes (personally owns)"]),
+ "Q90B": ("Assets", "Owns a television", "Do you personally own a television?", ["Yes (personally owns)"]),
+ "Q90C": ("Assets", "Owns a motor vehicle", "Do you personally own a motor vehicle, car, or motorcycle?", ["Yes (personally owns)"]),
+ "Q90E": ("Assets", "Owns a bank account", "Do you personally own a bank account?", ["Yes (personally owns)"]),
+
+ # --- Most important problem (nominal, no positive set) ---
+ "Q45PT1": ("Direction & Economy", "Most important problem facing the country", "In your opinion, what is the most important problem facing this country that government should address? (first-mentioned response)", None),
 }
 
+def build_indicators():
+    registry = {}
+    for var, tup in INDICATOR_DEFS.items():
+        theme, label, question, positive = tup[0], tup[1], tup[2], tup[3]
+        short_labels = tup[4] if len(tup) > 4 else None
+        order = ordered_labels(var)
+        entry = {"theme": theme, "label": label, "question": question, "order": order, "positive": positive}
+        if short_labels:
+            entry["short_labels"] = short_labels
+        registry[var] = entry
+    return registry
+
+INDICATORS = build_indicators()
+# sanity: warn if any declared "positive" label isn't actually present in that var's order
+for var, meta_ in INDICATORS.items():
+    if meta_["positive"]:
+        missing = [p for p in meta_["positive"] if p not in meta_["order"]]
+        if missing:
+            print(f"WARNING {var}: positive labels not found in order: {missing} (order={meta_['order']})")
+
+print(len(INDICATORS), "indicators defined")
+
 # ---------------------------------------------------------------------------
-def main():
-    with open(SRC, encoding="utf-8-sig") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
+# Demographic field derivation (reuse Afrobarometer's own pre-cleaned columns
+# where available: AGE_v1, EDUC_COND, RELIG_COND, LivedPoverty/_CAT).
+# ---------------------------------------------------------------------------
+def s(colname):
+    return df[colname]
 
-    records = []
-    q7_map = {"Never": 0, "Just once or twice": 1, "Several times": 2, "Many times": 3, "Always": 4}
+def substantive_str(series):
+    return series.where(series.map(lambda v: is_substantive(v) if isinstance(v, str) else True), None)
 
-    for r in rows:
-        region_raw = r["REGION"].strip() if r.get("REGION") else None
-        region_name = REGION_TITLE.get(region_raw, region_raw)
+demo_country = df["COUNTRY"].astype(str)
+demo_region = substantive_str(df["REGION"].astype(str))
+demo_urbrur = substantive_str(df["URBRUR"].astype(str))
+demo_gender = substantive_str(df["Q100"].astype(str))
+age_numeric = pd.to_numeric(df["Q1"], errors="coerce")
+demo_age = age_numeric.where(age_numeric.between(18, 120), None)
+demo_age_group = substantive_str(df["AGE_v1"].astype(str)).str.replace("66 and over", "66+", regex=False)
+demo_education = substantive_str(df["EDUC_COND"].astype(str))
+demo_religion = substantive_str(df["RELIG_COND"].astype(str))
+demo_lpi = df["LivedPoverty"].where(df["LivedPoverty"].notna(), None)
+demo_lpi_cat = substantive_str(df["LivedPoverty_CAT"].astype(str))
+demo_w_within = df["withinwt_hh"].fillna(1.0)
+demo_w_combined = df["Combinwt_new_hh"].fillna(1.0)
 
-        q7_clean = [clean(r.get(f"Q7{L}")) for L in "ABCDE"]
-        q7_nums = [q7_map.get(v) for v in q7_clean]
-        if all(v is not None for v in q7_nums):
-            lpi, lpi_c = lpi_cat(q7_nums)
+def to_pylist(series):
+    return [None if (v is None or (isinstance(v, float) and np.isnan(v))) else (round(float(v), 3) if isinstance(v, (float, np.floating)) else v) for v in series]
+
+DEMO_COLS = {
+    "region": to_pylist(demo_region), "urbrur": to_pylist(demo_urbrur), "gender": to_pylist(demo_gender),
+    "age": to_pylist(demo_age), "age_group": to_pylist(demo_age_group), "education": to_pylist(demo_education),
+    "religion": to_pylist(demo_religion), "lpi": to_pylist(demo_lpi), "lpi_cat": to_pylist(demo_lpi_cat),
+    "weight_within": to_pylist(demo_w_within), "weight_combined": to_pylist(demo_w_combined),
+}
+
+# Index-encode each indicator's responses against its own `order` list (small ints, not repeated label strings)
+IND_CODES = {}
+for var, m in INDICATORS.items():
+    order_index = {label: i for i, label in enumerate(m["order"])}
+    raw = df[var].astype(object)
+    codes = []
+    for v in raw:
+        if isinstance(v, str) and v in order_index:
+            codes.append(order_index[v])
         else:
-            lpi, lpi_c = None, None
+            codes.append(None)
+    IND_CODES[var] = codes
 
-        weight_raw = r.get("withinwt_hh") or r.get("withinwt_ea") or "1"
-        try:
-            weight = float(weight_raw)
-        except (ValueError, TypeError):
-            weight = 1.0
+country_names = sorted(demo_country.unique().tolist())
+print(len(country_names), "countries")
 
-        rec = {
-            "id": r.get("RESPNO"),
-            "region": region_name,
-            "urbrur": clean(r.get("URBRUR")),
-            "gender": clean(r.get("Q101")),
-            "age": clean(r.get("Q1")),
-            "age_group": age_group(clean(r.get("Q1"))),
-            "education": edu_group(clean(r.get("Q96"))),
-            "employment": employ_group(clean(r.get("Q94A"))),
-            "religion": religion_group(clean(r.get("Q97"))),
-            "ethnicity": ethnicity_group(clean(r.get("Q83A"))),
-            "lpi": lpi,
-            "lpi_cat": lpi_c,
-            "weight": weight,
-            "ind": {}
-        }
-        for var in INDICATORS:
-            rec["ind"][var] = clean(r.get(var))
-        records.append(rec)
+# ---------------------------------------------------------------------------
+# Per-country microdata files (columnar + int-coded), loaded on demand by the
+# frontend when a country is selected for deep-dive exploration.
+# ---------------------------------------------------------------------------
+country_dir = os.path.join(OUT_DIR, "countries")
+os.makedirs(country_dir, exist_ok=True)
 
-    n = len(records)
-    with open(os.path.join(OUT_DIR, "records.json"), "w", encoding="utf-8") as f:
-        json.dump(records, f, ensure_ascii=False, separators=(",", ":"))
+def slugify(name):
+    return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
 
-    meta = {
-        "country": "Ghana", "round": 10, "year": 2024,
-        "fieldwork_dates": "5–21 August 2024",
-        "fieldwork_partner": "Center for Democratic Development (CDD-Ghana)",
-        "sample_size": n,
-        "margin_of_error": "+/-2 percentage points at 95% confidence",
-        "languages": ["Akan", "English", "Ewe", "Ga", "Dagbani", "Dagaari"],
-        "regions": sorted(set(REGION_TITLE.values())),
-        "citation": "Afrobarometer Data, Ghana, Round 10, 2024, available at http://www.afrobarometer.org.",
-        "codebook_source": "AB_R10.Codebook_Ghana_30June25.pdf, Afrobarometer, prepared by Alfred Torsu, June 2025",
+country_manifest = []
+n_total = len(df)
+country_mask_cache = {}
+
+for cname in country_names:
+    mask = (demo_country == cname).values
+    country_mask_cache[cname] = mask
+    idx = np.nonzero(mask)[0]
+    n_c = len(idx)
+    slug = slugify(cname)
+    regions_c = sorted(set(x for x in (DEMO_COLS["region"][i] for i in idx) if x))
+
+    payload = {
+        "country": cname, "n": n_c, "regions": regions_c,
+        "demo": {k: [v[i] for i in idx] for k, v in DEMO_COLS.items()},
+        "ind": {var: [codes[i] for i in idx] for var, codes in IND_CODES.items()},
     }
-    with open(os.path.join(OUT_DIR, "meta.json"), "w", encoding="utf-8") as f:
-        json.dump(meta, f, indent=2, ensure_ascii=False)
+    with open(os.path.join(country_dir, f"{slug}.json"), "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, separators=(",", ":"))
+    country_manifest.append({"name": cname, "slug": slug, "n": n_c, "regions": len(regions_c)})
+    print(f"  wrote {slug}.json  n={n_c}")
 
-    with open(os.path.join(OUT_DIR, "indicators.json"), "w", encoding="utf-8") as f:
-        json.dump(INDICATORS, f, indent=2, ensure_ascii=False)
+# ---------------------------------------------------------------------------
+# Cross-country aggregates (precomputed) — powers Compare Countries / Africa
+# Explorer instantly without shipping all 39 countries' microdata up front.
+# Uses within-country weight for each country's own %, and the official
+# multi-country weighting factor (Combinwt_new_hh) for the continental figure.
+# ---------------------------------------------------------------------------
+def weighted_pct_vec(mask, codes_np, weights_np, positive_idx_set):
+    sub_codes = codes_np[mask]
+    sub_weights = weights_np[mask]
+    valid = ~np.isnan(sub_codes)
+    n = int(valid.sum())
+    if n == 0:
+        return None, 0
+    vw = sub_weights[valid]
+    den = vw.sum()
+    if den <= 0:
+        return None, n
+    in_pos = np.isin(sub_codes[valid], list(positive_idx_set))
+    num = vw[in_pos].sum()
+    return round(100 * num / den, 1), n
 
-    # ---- Executive KPIs (weighted) --------------------------------------
-    def weighted_pct(var, positive_set):
-        num, den = 0.0, 0.0
-        for r in records:
-            v = r["ind"].get(var)
-            if v is None: continue
-            den += r["weight"]
-            if v in positive_set: num += r["weight"]
-        return round(100 * num / den, 1) if den else None
+by_indicator = {}
+w_within_np = np.array([np.nan if v is None else v for v in DEMO_COLS["weight_within"]], dtype=float)
+w_combined_np = np.array([np.nan if v is None else v for v in DEMO_COLS["weight_combined"]], dtype=float)
+country_mask_np = {c: np.asarray(m) for c, m in country_mask_cache.items()}
+all_mask_np = np.ones(n_total, dtype=bool)
 
-    def weighted_mean(getter):
-        num, den = 0.0, 0.0
-        for r in records:
-            v = getter(r)
-            if v is None: continue
-            num += v * r["weight"]; den += r["weight"]
-        return round(num / den, 2) if den else None
+for var, m in INDICATORS.items():
+    if not m["positive"]:
+        continue
+    positive_idx = {i for i, lab in enumerate(m["order"]) if lab in m["positive"]}
+    codes_np = np.array([np.nan if v is None else float(v) for v in IND_CODES[var]], dtype=float)
+    entry = {}
+    for cname in country_names:
+        pct, n = weighted_pct_vec(country_mask_np[cname], codes_np, w_within_np, positive_idx)
+        entry[cname] = {"pct": pct, "n": n}
+    cont_pct, cont_n = weighted_pct_vec(all_mask_np, codes_np, w_combined_np, positive_idx)
+    entry["__continental__"] = {"pct": cont_pct, "n": cont_n}
+    by_indicator[var] = entry
+    print("aggregated", var)
 
-    kpis = {
-        "sample_size": n,
-        "regions_covered": len(set(r["region"] for r in records if r["region"])),
-        "econ_condition_positive_pct": weighted_pct("Q4A", {"Fairly good", "Very good"}),
-        "personal_living_positive_pct": weighted_pct("Q4B", {"Fairly good", "Very good"}),
-        "support_democracy_pct": weighted_pct("Q22", {"STATEMENT 1: Democracy is preferable to any other kind of government."}),
-        "satisfied_democracy_pct": weighted_pct("Q33", {"Fairly satisfied", "Very satisfied"}),
-        "president_approval_pct": weighted_pct("Q48A", {"Approve", "Strongly approve"}),
-        "trust_president_pct": weighted_pct("Q37A", {"Somewhat", "A lot"}),
-        "trust_police_pct": weighted_pct("Q37G", {"Somewhat", "A lot"}),
-        "corruption_pres_office_high_pct": weighted_pct("Q38A", {"Most of them", "All of them"}),
-        "corruption_worsened_pct": weighted_pct("Q39A", {"Increased a lot", "Increased somewhat"}),
-        "right_direction_pct": weighted_pct("Q3", {"Going in the right direction"}),
-        "electricity_access_pct": weighted_pct("Q93A", {"Yes"}),
-        "internet_access_pct": weighted_pct("Q90H", {"Yes (Has Internet access)"}),
-        "avg_lived_poverty_index": weighted_mean(lambda r: r["lpi"]),
-    }
-    # high lived poverty % (separate because it's derived, not a raw indicator)
-    num, den = 0.0, 0.0
-    for r in records:
-        if r["lpi_cat"] is None: continue
-        den += r["weight"]
-        if r["lpi_cat"] == "High lived poverty": num += r["weight"]
-    kpis["high_lived_poverty_pct"] = round(100 * num / den, 1) if den else None
+with open(os.path.join(OUT_DIR, "country_aggregates.json"), "w", encoding="utf-8") as f:
+    json.dump({"by_indicator": by_indicator}, f, ensure_ascii=False, separators=(",", ":"))
 
-    # Most important problems (top 5, weighted, first response)
-    mip = collections.Counter()
-    mip_den = 0.0
-    for r in records:
-        v = r["ind"].get("Q46PT1")
-        if v is None: continue
-        mip[v] += r["weight"]
-        mip_den += r["weight"]
-    top_mip = [{"problem": k, "pct": round(100 * v / mip_den, 1)} for k, v in mip.most_common(6)]
-    kpis["top_problems"] = top_mip
+with open(os.path.join(OUT_DIR, "indicators.json"), "w", encoding="utf-8") as f:
+    json.dump(INDICATORS, f, indent=2, ensure_ascii=False)
 
-    with open(os.path.join(OUT_DIR, "executive.json"), "w", encoding="utf-8") as f:
-        json.dump(kpis, f, indent=2, ensure_ascii=False)
+meta_out = {
+    "dataset": "Afrobarometer Round 9 Merged Data (39 countries)",
+    "round": 9, "n_total": n_total,
+    "countries": country_manifest,
+    "citation": "Afrobarometer Data, Merged Round 9 (39 countries), 2021-2023, available at http://www.afrobarometer.org.",
+    "codebook_source": "AB_R9_MergeCodebook_25Jun24_final.pdf, Afrobarometer",
+    "source_file": "R9_Merge_39ctry_20Nov23_final__release_Updated_4Jun25-3.sav",
+    "weighting_note": "Per-country statistics use withinwt_hh (within-country weight). Continental/cross-country aggregates use Combinwt_new_hh (Afrobarometer's official multi-country weighting factor), which gives each of the 39 countries equal weight regardless of population, matching Afrobarometer's own published cross-country reporting convention.",
+}
+with open(os.path.join(OUT_DIR, "meta.json"), "w", encoding="utf-8") as f:
+    json.dump(meta_out, f, indent=2, ensure_ascii=False)
 
-    print("Wrote", n, "records,", len(INDICATORS), "indicators")
-    print(json.dumps(kpis, indent=2, ensure_ascii=False))
+# ---------------------------------------------------------------------------
+# Continental summary: headline KPIs (pulled from country_aggregates'
+# __continental__ entries) + most-important-problem ranking (Q45PT1 is
+# nominal, so it isn't in country_aggregates; computed separately here).
+# ---------------------------------------------------------------------------
+mip_order = INDICATORS["Q45PT1"]["order"]
+mip_codes = np.array([np.nan if v is None else float(v) for v in IND_CODES["Q45PT1"]], dtype=float)
+valid = ~np.isnan(mip_codes)
+den = w_combined_np[valid].sum()
+mip_weighted = {}
+for i, label in enumerate(mip_order):
+    sel = valid & (mip_codes == i)
+    mip_weighted[label] = round(100 * w_combined_np[sel].sum() / den, 1) if den else 0
+top_mip = sorted(mip_weighted.items(), key=lambda kv: -kv[1])[:8]
 
-if __name__ == "__main__":
-    main()
+def cont(var):
+    return by_indicator.get(var, {}).get("__continental__", {"pct": None, "n": 0})
+
+continental = {
+    "n_total": n_total,
+    "n_countries": len(country_names),
+    "headline": {
+        "econ_condition_positive_pct": cont("Q4A")["pct"],
+        "support_democracy_pct": cont("Q23")["pct"],
+        "satisfied_democracy_pct": cont("Q31")["pct"],
+        "president_approval_pct": cont("Q47A")["pct"],
+        "corruption_worsened_pct": None,  # Q39A "positive" is decrease; worsened = increased categories, compute directly below
+        "trust_president_pct": cont("Q37A")["pct"],
+        "trust_police_pct": cont("Q37G")["pct"],
+        "internet_access_pct": cont("Q90G")["pct"],
+        "electricity_access_pct": cont("Q92A")["pct"],
+    },
+    "top_problems": [{"problem": k, "pct": v} for k, v in top_mip],
+}
+# corruption "worsened" = Increased a lot / Increased somewhat (inverse of the registry's "positive"=decreased set)
+q39_order = INDICATORS["Q39A"]["order"]
+q39_codes = np.array([np.nan if v is None else float(v) for v in IND_CODES["Q39A"]], dtype=float)
+worsened_idx = {i for i, lab in enumerate(q39_order) if lab in ("Increased a lot", "Increased somewhat")}
+pct, n = weighted_pct_vec(all_mask_np, q39_codes, w_combined_np, worsened_idx)
+continental["headline"]["corruption_worsened_pct"] = pct
+
+with open(os.path.join(OUT_DIR, "continental.json"), "w", encoding="utf-8") as f:
+    json.dump(continental, f, indent=2, ensure_ascii=False)
+
+print("DONE.")
+print(f"n_total={n_total}, countries={len(country_names)}, indicators={len(INDICATORS)}")

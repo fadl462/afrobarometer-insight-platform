@@ -1,37 +1,245 @@
 {
-  "country": "Ghana",
-  "round": 10,
-  "year": 2024,
-  "fieldwork_dates": "5–21 August 2024",
-  "fieldwork_partner": "Center for Democratic Development (CDD-Ghana)",
-  "sample_size": 2400,
-  "margin_of_error": "+/-2 percentage points at 95% confidence",
-  "languages": [
-    "Akan",
-    "English",
-    "Ewe",
-    "Ga",
-    "Dagbani",
-    "Dagaari"
+  "dataset": "Afrobarometer Round 9 Merged Data (39 countries)",
+  "round": 9,
+  "n_total": 53444,
+  "countries": [
+    {
+      "name": "Angola",
+      "slug": "angola",
+      "n": 1200,
+      "regions": 18
+    },
+    {
+      "name": "Benin",
+      "slug": "benin",
+      "n": 1200,
+      "regions": 12
+    },
+    {
+      "name": "Botswana",
+      "slug": "botswana",
+      "n": 1200,
+      "regions": 24
+    },
+    {
+      "name": "Burkina Faso",
+      "slug": "burkina-faso",
+      "n": 1200,
+      "regions": 13
+    },
+    {
+      "name": "Cabo Verde",
+      "slug": "cabo-verde",
+      "n": 1199,
+      "regions": 5
+    },
+    {
+      "name": "Cameroon",
+      "slug": "cameroon",
+      "n": 1200,
+      "regions": 12
+    },
+    {
+      "name": "Congo-Brazzaville",
+      "slug": "congo-brazzaville",
+      "n": 1200,
+      "regions": 12
+    },
+    {
+      "name": "Côte d'Ivoire",
+      "slug": "c-te-d-ivoire",
+      "n": 1200,
+      "regions": 33
+    },
+    {
+      "name": "Eswatini",
+      "slug": "eswatini",
+      "n": 1200,
+      "regions": 4
+    },
+    {
+      "name": "Ethiopia",
+      "slug": "ethiopia",
+      "n": 2400,
+      "regions": 13
+    },
+    {
+      "name": "Gabon",
+      "slug": "gabon",
+      "n": 1200,
+      "regions": 9
+    },
+    {
+      "name": "Gambia",
+      "slug": "gambia",
+      "n": 1200,
+      "regions": 8
+    },
+    {
+      "name": "Ghana",
+      "slug": "ghana",
+      "n": 2369,
+      "regions": 16
+    },
+    {
+      "name": "Guinea",
+      "slug": "guinea",
+      "n": 1200,
+      "regions": 8
+    },
+    {
+      "name": "Kenya",
+      "slug": "kenya",
+      "n": 2400,
+      "regions": 47
+    },
+    {
+      "name": "Lesotho",
+      "slug": "lesotho",
+      "n": 1200,
+      "regions": 10
+    },
+    {
+      "name": "Liberia",
+      "slug": "liberia",
+      "n": 1200,
+      "regions": 15
+    },
+    {
+      "name": "Madagascar",
+      "slug": "madagascar",
+      "n": 1200,
+      "regions": 23
+    },
+    {
+      "name": "Malawi",
+      "slug": "malawi",
+      "n": 1200,
+      "regions": 3
+    },
+    {
+      "name": "Mali",
+      "slug": "mali",
+      "n": 1200,
+      "regions": 9
+    },
+    {
+      "name": "Mauritania",
+      "slug": "mauritania",
+      "n": 1200,
+      "regions": 13
+    },
+    {
+      "name": "Mauritius",
+      "slug": "mauritius",
+      "n": 1200,
+      "regions": 10
+    },
+    {
+      "name": "Morocco",
+      "slug": "morocco",
+      "n": 1200,
+      "regions": 12
+    },
+    {
+      "name": "Mozambique",
+      "slug": "mozambique",
+      "n": 1120,
+      "regions": 11
+    },
+    {
+      "name": "Namibia",
+      "slug": "namibia",
+      "n": 1200,
+      "regions": 14
+    },
+    {
+      "name": "Niger",
+      "slug": "niger",
+      "n": 1200,
+      "regions": 8
+    },
+    {
+      "name": "Nigeria",
+      "slug": "nigeria",
+      "n": 1600,
+      "regions": 37
+    },
+    {
+      "name": "Senegal",
+      "slug": "senegal",
+      "n": 1200,
+      "regions": 14
+    },
+    {
+      "name": "Seychelles",
+      "slug": "seychelles",
+      "n": 1176,
+      "regions": 6
+    },
+    {
+      "name": "Sierra Leone",
+      "slug": "sierra-leone",
+      "n": 1200,
+      "regions": 5
+    },
+    {
+      "name": "South Africa",
+      "slug": "south-africa",
+      "n": 1580,
+      "regions": 9
+    },
+    {
+      "name": "Sudan",
+      "slug": "sudan",
+      "n": 1200,
+      "regions": 6
+    },
+    {
+      "name": "São Tomé and Príncipe",
+      "slug": "s-o-tom-and-pr-ncipe",
+      "n": 1200,
+      "regions": 4
+    },
+    {
+      "name": "Tanzania",
+      "slug": "tanzania",
+      "n": 2400,
+      "regions": 31
+    },
+    {
+      "name": "Togo",
+      "slug": "togo",
+      "n": 1200,
+      "regions": 6
+    },
+    {
+      "name": "Tunisia",
+      "slug": "tunisia",
+      "n": 1200,
+      "regions": 7
+    },
+    {
+      "name": "Uganda",
+      "slug": "uganda",
+      "n": 2400,
+      "regions": 12
+    },
+    {
+      "name": "Zambia",
+      "slug": "zambia",
+      "n": 1200,
+      "regions": 10
+    },
+    {
+      "name": "Zimbabwe",
+      "slug": "zimbabwe",
+      "n": 1200,
+      "regions": 10
+    }
   ],
-  "regions": [
-    "Ahafo",
-    "Ashanti",
-    "Bono",
-    "Bono East",
-    "Central",
-    "Eastern",
-    "Greater Accra",
-    "North East",
-    "Northern",
-    "Oti",
-    "Savannah",
-    "Upper East",
-    "Upper West",
-    "Volta",
-    "Western",
-    "Western North"
-  ],
-  "citation": "Afrobarometer Data, Ghana, Round 10, 2024, available at http://www.afrobarometer.org.",
-  "codebook_source": "AB_R10.Codebook_Ghana_30June25.pdf, Afrobarometer, prepared by Alfred Torsu, June 2025"
+  "citation": "Afrobarometer Data, Merged Round 9 (39 countries), 2021-2023, available at http://www.afrobarometer.org.",
+  "codebook_source": "AB_R9_MergeCodebook_25Jun24_final.pdf, Afrobarometer",
+  "source_file": "R9_Merge_39ctry_20Nov23_final__release_Updated_4Jun25-3.sav",
+  "weighting_note": "Per-country statistics use withinwt_hh (within-country weight). Continental/cross-country aggregates use Combinwt_new_hh (Afrobarometer's official multi-country weighting factor), which gives each of the 39 countries equal weight regardless of population, matching Afrobarometer's own published cross-country reporting convention."
 }

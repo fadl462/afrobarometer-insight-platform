@@ -1,0 +1,49 @@
+{
+  "n_total": 53444,
+  "n_countries": 39,
+  "headline": {
+    "econ_condition_positive_pct": 24.2,
+    "support_democracy_pct": 67.6,
+    "satisfied_democracy_pct": 37.4,
+    "president_approval_pct": 51.8,
+    "corruption_worsened_pct": 60.6,
+    "trust_president_pct": 47.0,
+    "trust_police_pct": 46.6,
+    "internet_access_pct": 57.5,
+    "electricity_access_pct": 59.8
+  },
+  "top_problems": [
+    {
+      "problem": "Management of the economy",
+      "pct": 14.6
+    },
+    {
+      "problem": "Unemployment",
+      "pct": 14.3
+    },
+    {
+      "problem": "Water supply",
+      "pct": 9.1
+    },
+    {
+      "problem": "Crime and Security",
+      "pct": 8.6
+    },
+    {
+      "problem": "Infrastructure / roads",
+      "pct": 7.5
+    },
+    {
+      "problem": "Health",
+      "pct": 6.7
+    },
+    {
+      "problem": "Food shortage/famine",
+      "pct": 6.5
+    },
+    {
+      "problem": "Education",
+      "pct": 5.2
+    }
+  ]
+}

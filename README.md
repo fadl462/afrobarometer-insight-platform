@@ -1,116 +1,134 @@
-# Afrobarometer Insight Platform — Ghana Round 10 (Prototype)
+# Afrobarometer Insight Platform — 39-Country Round 9 Build
 
-An interactive evidence intelligence platform built on Afrobarometer's Round 10
-(2024) Ghana survey microdata — built as a technical proposal prototype, not
-an official Afrobarometer product.
+An interactive evidence intelligence platform built on Afrobarometer's real
+**Round 9 Merged Data** — 53,444 interviews across all 39 fielded countries —
+prepared as a technical proposal prototype, not an official Afrobarometer
+product.
+
+**Live demo:** https://fadl462.github.io/afrobarometer-insight-platform/
 
 **Live locally:** open `index.html` in any modern browser, or serve the
-repo root with any static file server (no build step, no server-side
-code, everything runs client-side):
+repo root with any static file server (no build step, no server-side code —
+everything runs client-side):
 
 ```bash
 python3 -m http.server 8000
 # then open http://localhost:8000
 ```
 
-**Live demo:** https://fadl462.github.io/afrobarometer-insight-platform/
-
 ## What this is
 
-Rather than a static dashboard of pre-baked charts, this platform ships the
-full respondent-level dataset (weighted, cleaned, de-identified of any
-free-text fields) to the browser and computes every statistic — distributions,
-regional comparisons, demographic cross-tabs, and rule-based policy
-findings — on the fly, in response to the filters you choose. Every number is
-traceable back to the underlying Afrobarometer microdata and its official
-codebook.
+The platform ships two tiers of data:
+
+1. **Precomputed cross-country aggregates** (`data/country_aggregates.json`,
+   `data/continental.json`) — small, fast-loading files covering every
+   country on every indicator, so the Executive Briefing and Compare
+   Countries views render instantly with no per-country fetch.
+2. **Full respondent-level microdata, per country** (`data/countries/*.json`)
+   — a columnar, integer-coded file for each of the 39 countries (~700–900KB
+   raw, ~100KB gzipped), fetched on demand whenever you change the sidebar's
+   **focus country** selector. This powers the deep-dive views (Indicator
+   Explorer, Demographic Intelligence, Regional Intelligence, Policy Insight
+   Centre, and within-country Ask-the-Data questions) with genuine
+   respondent-level computation, not pre-baked charts.
+
+Every statistic is traceable: single-country figures use `withinwt_hh`
+(Afrobarometer's within-country weight); cross-country and continental
+figures use `Combinwt_new_hh` (Afrobarometer's own multi-country weighting
+factor, which gives each of the 39 countries equal say in the continental
+average regardless of population — matching Afrobarometer's published
+cross-country reporting convention).
 
 ### Modules
-- **Executive Briefing** — headline KPIs (click any card to drill into that
-  indicator), a rule-based insights feed, top citizen-named problems, and a
-  regional/institutional snapshot (click any bar to drill in).
-- **Country Intelligence Centre** — sample composition, fieldwork details,
-  and a narrative synthesis.
+- **Executive Briefing** — continental headline KPIs, a rule-based insights
+  feed, the top problems citizens name across all 39 countries, a country
+  ranking on "direction of the country" (click a bar to make that country
+  your focus country), and continental trust averages.
+- **Country Intelligence Centre** — deep profile of the focus country:
+  sample composition, a chart benchmarking it against the continental
+  average on headline indicators, and its numeric rank out of 39 countries
+  on key measures.
 - **Indicator Explorer** — theme → indicator → live distribution, regional
-  comparison, urban/rural split, and demographic breakdown, all filterable.
-  Every chart has a matching sortable data table; clicking a region bar
-  re-filters the whole view to that region.
-- **Demographic Intelligence** — build an arbitrary respondent segment (any
-  combination of gender, setting, age, education, religion, employment,
-  lived-poverty band) and compare it against the national average on any
-  indicator.
-- **Regional Intelligence** — a schematic 16-region grid (Ghana's regions,
-  arranged roughly north-to-south / west-to-east) with click-to-filter detail;
-  the ranked list is click-to-select too.
-- **Compare Countries** — an honest scaffold: this prototype ships with
-  verified Ghana data only, so no other-country figures are fabricated. The
-  underlying engine (indicator registry + respondent-level JSON schema) is
-  written to be country-agnostic, so adding a second country's Round 10 file
-  activates this view without further engineering.
-- **Policy Insight Centre** — scans every indicator against five demographic
-  splits and reports any gap at or above a chosen threshold, with the exact
-  percentages and group labels driving each sentence (fixed rules over the
-  weighted data, not generative text). Each finding is clickable through to
-  its indicator.
-- **Ask the Data** — a floating assistant (available on every page) plus a
-  dedicated Q&A Centre. Type a question in plain language ("Which region
-  trusts the police least?", "Do young people use the internet more?") and
-  a fixed-rule query engine (`js/qa-engine.js`) matches it against the
-  indicator registry, detects any region/gender/age/education/lived-poverty
-  terms in the question, and runs the exact same weighted-stats functions
-  used everywhere else on the platform — so every answer is reproducible,
-  not generated. The Q&A Centre also ships an auto-built FAQ (one entry per
-  indicator, using its real survey-question wording as the prompt) plus five
-  hand-authored cross-cutting questions.
+  comparison, urban/rural split, and demographic breakdown for the focus
+  country, all filterable, with sortable data tables under every chart.
+- **Demographic Intelligence** — build an arbitrary respondent segment
+  within the focus country and compare it against that country's average.
+- **Regional Intelligence** — every region within the focus country
+  (auto-generated tile grid — region counts range from 4 to 47 across the
+  39 countries, so layout isn't hand-placed) with click-to-filter detail.
+- **Compare Countries** — genuinely real now: pick any indicator and see all
+  39 countries ranked, with a dashed line marking the continental average,
+  a sortable data table, and CSV export. Click a bar to make that country
+  your focus.
+- **Policy Insight Centre** — scans every indicator in the focus country
+  against five demographic splits and reports gaps at or above a chosen
+  threshold — fixed rules over weighted data, not generative text.
+- **Ask the Data** — a floating assistant (every page) plus a dedicated Q&A
+  Centre. The fixed-rule query engine (`js/qa-engine.js`) now understands:
+  - **Country-vs-country comparisons** ("Compare Ghana and Kenya on trust in
+    police") — answered directly from the precomputed aggregates, no fetch.
+  - **Cross-country rankings** ("Which country has the highest support for
+    democracy?") — ditto.
+  - **Single-country lookups for countries other than your current focus**
+    ("How do people in Nigeria feel about corruption in the police?") — with
+    a one-click button to make that country your new focus for deeper
+    within-country exploration.
+  - Existing region/demographic/plain-lookup questions, scoped to whichever
+    country is currently focused.
+  - An auto-built FAQ (one entry per indicator, prompted with its real
+    survey-question wording) plus 6 hand-authored cross-cutting questions.
 - **Methodology & Downloads** — sampling details, citation, weighting
-  conventions, and export of the indicator registry / codebook reference.
-
-## Known limitations & roadmap
-
-- **Single country today.** This build ships Ghana Round 10 only. Afrobarometer's
-  actual Round 9 merged dataset covers 39 countries
-  (`R9.Merge_39ctry.20Nov23.final_.release_Updated.4Jun25-3.sav`, from
-  https://www.afrobarometer.org/data/merged-data/) and its accompanying
-  merge codebook — both referenced during this build — but the raw `.sav`
-  file itself was not available to fetch from the environment this prototype
-  was built in. Supplying that file (or a CSV/Stata export of it) lets
-  `etl.py` be extended with a `country` field and activates the Compare
-  Countries / Africa Explorer views for real, without touching the frontend.
-- **"Ask the Data" is a fixed-rule query engine, not a language model.** It
-  fuzzy-matches question text against the indicator registry's labels and
-  question wording, plus a small dictionary of region/gender/age/education/
-  lived-poverty terms, then calls the same `weightedFavorable` /
-  `groupFavorable` functions used elsewhere. It will not understand
-  questions with no keyword overlap to the registry, and will say so rather
-  than guessing.
+  conventions, and export of the indicator registry.
 
 ## Data & provenance
 
-- Source data: `GHA_R10.Data_03Oct24.wtd.final.release_updated.13Feb25.csv`
-  (Afrobarometer Round 10, Ghana, n = 2,400, fieldwork 5–21 August 2024,
-  CDD-Ghana).
-- Value labels and question wording were cross-checked against
-  **AB_R10.Codebook_Ghana_30June25.pdf** (Afrobarometer's official Ghana
-  Round 10 codebook, prepared by Alfred Torsu, June 2025) — not the Round 9
-  merge codebook, which uses different question numbering for several items.
-- `etl.py` is the one-time transform from the raw labeled CSV export into
-  `data/{records,indicators,meta,executive}.json`. It is included in
-  this repo for transparency/reproducibility; it is not run in the browser.
-- All percentages use the `withinwt_hh` weight Afrobarometer supplies to
-  correct for individual selection probability. "Don't know", "Refused", and
-  "Not applicable" responses are excluded from percentage bases.
+- Source: `R9_Merge_39ctry_20Nov23_final__release_Updated_4Jun25-3.sav` —
+  Afrobarometer's official Round 9 merged dataset (39 countries, n=53,444),
+  from https://www.afrobarometer.org/data/merged-data/.
+- **106 indicators**, defined in `etl.py`. Every indicator's value labels and
+  response-order are pulled *programmatically* from the `.sav` file's own
+  embedded SPSS metadata (`pyreadstat`'s `variable_value_labels`) — not
+  hand-transcribed — with an automated sanity check that flags any declared
+  "favourable" label not actually present in that variable's real value set.
+  Seven such mismatches were caught and fixed this way during development.
+- Demographic fields reuse Afrobarometer's own pre-cleaned derived columns
+  where available (`AGE_v1`, `EDUC_COND`, `RELIG_COND`, `LivedPoverty` /
+  `LivedPoverty_CAT`) rather than re-deriving them.
+- `etl.py` is the one-time transform from the raw `.sav` export into
+  `data/{meta,indicators,continental,country_aggregates}.json` and
+  `data/countries/*.json`. It is included for transparency/reproducibility
+  and is not run in the browser. To reproduce: place the `.sav` file
+  alongside `etl.py`, `pip install pyreadstat pandas numpy --break-system-packages`,
+  and run it.
+
+## Known limitations
+
+- **"Ask the Data" is a fixed-rule query engine, not a language model.** It
+  matches question text against the indicator registry's labels/question
+  wording plus dictionaries of country/region/gender/age/education/
+  lived-poverty terms (word-boundary matching, with simple suffix-stripping
+  for plurals), then calls the same weighted-stats functions used
+  everywhere else. It will say so rather than guess when nothing matches.
+- **Only one country's microdata is loaded at a time.** This keeps initial
+  load fast across 39 countries, but within-country region/demographic
+  breakdowns for a country you haven't focused on aren't available until
+  you switch to it (the assistant will offer a one-click button to do so).
+- Some Round 9 items (e.g. detailed COVID-19 items, several country-specific
+  extension questions) are not yet in the 106-indicator registry; the
+  registry prioritizes breadth across themes over exhaustive coverage of
+  every one of the ~420 columns in the source file.
 
 ## Citation
 
-> Afrobarometer Data, Ghana, Round 10, 2024, available at http://www.afrobarometer.org.
+> Afrobarometer Data, Merged Round 9 (39 countries), 2021-2023, available at http://www.afrobarometer.org.
 
 Afrobarometer data are protected by copyright; this repository is a
 technical prototype prepared for a proposal to Afrobarometer and is not
-redistributing raw survey files — only the derived, respondent-level JSON
-needed to power this specific demo.
+redistributing the raw survey file — only the derived, respondent-level
+JSON needed to power this specific demo.
 
 ## Stack
 
 Vanilla HTML/CSS/JS, no build step. Chart.js and all web fonts are vendored
-locally under `js/vendor/` and `fonts/` so the demo runs fully
-offline (no CDN dependency at presentation time).
+locally under `js/vendor/` and `fonts/` so the demo runs fully offline (no
+CDN dependency at presentation time).

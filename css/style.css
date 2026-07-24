@@ -262,7 +262,7 @@ main.content{min-width:0;}
 .rank-val{font-family:var(--font-mono);text-align:right;color:var(--ink);font-weight:600;}
 
 /* Region tile grid (schematic geography, north top / south bottom) */
-.region-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+.region-grid{display:grid;grid-template-columns:repeat(auto-fill, minmax(110px, 1fr));gap:8px;}
 .region-tile{
   border-radius:10px;padding:10px 8px;text-align:center;cursor:pointer;
   border:1px solid var(--line);background:var(--paper);transition:transform .12s ease, box-shadow .12s ease;

@@ -1,16 +1,27 @@
 /* =========================================================================
-   Afrobarometer Insight Platform — application logic
-   Vanilla JS, no build step. Chart.js loaded via CDN in index.html.
-   All statistics are computed client-side from respondent-level microdata
-   (site/data/records.json), weighted by withinwt_hh.
+   Afrobarometer Insight Platform — application logic (39-country R9 build)
+   Vanilla JS, no build step. Chart.js loaded locally in index.html.
+
+   Data architecture:
+   - meta.json / indicators.json / country_aggregates.json / continental.json
+     load once at boot (all small, fast) and power continental views
+     (Executive Briefing, Compare Countries) with NO per-country fetch.
+   - data/countries/<slug>.json holds one country's full respondent-level
+     microdata (columnar + integer-coded for size) and is fetched on demand
+     whenever the sidebar's focus-country selector changes. It powers
+     Indicator Explorer, Demographic Intelligence, Regional Intelligence,
+     Policy Insight Centre, and Ask-the-Data's within-country questions.
    ========================================================================= */
 
 const APP = {
-  meta: null, indicators: null, records: null, exec: null,
-  charts: {},              // holds live Chart.js instances keyed by canvas id, so we can destroy/redraw
-  demoFilters: {},         // Demographic Intelligence: multi-select filter state
-  regionSelected: null,
+  meta: null, indicators: null, aggregates: null, continental: null,
+  records: null,           // decoded microdata for the current focus country
+  countrySlug: null, countryName: null, countryPayload: null,
+  charts: {}, demoFilters: {}, regionSelected: null,
+  _countryDependentInited: false,
 };
+
+const DEFAULT_COUNTRY_SLUG = "ghana";
 
 const DEMO_FIELDS = [
   { key: "gender", label: "Gender" },
@@ -18,7 +29,6 @@ const DEMO_FIELDS = [
   { key: "age_group", label: "Age" },
   { key: "education", label: "Education" },
   { key: "religion", label: "Religion" },
-  { key: "employment", label: "Employment" },
   { key: "lpi_cat", label: "Lived poverty" },
 ];
 
@@ -28,28 +38,100 @@ const PALETTE = ["#F25528", "#233A5E", "#1E7A5F", "#A8790A", "#8A5DAB", "#C63F1A
 // Bootstrapping
 // ---------------------------------------------------------------------------
 async function boot() {
-  const [meta, indicators, records, exec] = await Promise.all([
+  const [meta, indicators, aggregates, continental] = await Promise.all([
     fetch("data/meta.json").then(r => r.json()),
     fetch("data/indicators.json").then(r => r.json()),
-    fetch("data/records.json").then(r => r.json()),
-    fetch("data/executive.json").then(r => r.json()),
+    fetch("data/country_aggregates.json").then(r => r.json()),
+    fetch("data/continental.json").then(r => r.json()),
   ]);
-  APP.meta = meta; APP.indicators = indicators; APP.records = records; APP.exec = exec;
+  APP.meta = meta; APP.indicators = indicators; APP.aggregates = aggregates.by_indicator; APP.continental = continental;
 
-  document.getElementById("sidebarMeta").innerHTML =
-    `${meta.country} · Round ${meta.round} · n=${meta.sample_size}<br>Fieldwork: ${meta.fieldwork_dates}`;
-
+  populateGlobalCountrySelect();
   initNav();
   initTheme();
   renderExecutive();
-  renderCountry();
+  initCompareCountries();
+
+  await loadCountry(DEFAULT_COUNTRY_SLUG);
+
   initIndicatorExplorer();
   initDemographicIntelligence();
   initRegionalIntelligence();
   initPolicyInsightCentre();
+  renderCountry();
   renderMethodology();
   initAssistant();
   initQACentre();
+  APP._countryDependentInited = true;
+}
+
+function populateGlobalCountrySelect() {
+  const sel = document.getElementById("globalCountrySelect");
+  const sorted = [...APP.meta.countries].sort((a, b) => a.name.localeCompare(b.name));
+  sel.innerHTML = sorted.map(c => `<option value="${c.slug}">${c.name} (n=${c.n})</option>`).join("");
+  sel.value = DEFAULT_COUNTRY_SLUG;
+  sel.addEventListener("change", () => setFocusCountry(sel.value));
+}
+
+async function setFocusCountry(slug) {
+  document.getElementById("globalCountrySelect").value = slug;
+  await loadCountry(slug);
+  APP.regionSelected = null;
+  renderCountry();
+  populateIndicatorSelect();
+  renderDemographic();
+  renderRegional();
+  renderPolicy();
+  updateCountryTags();
+}
+
+function updateCountryTags() {
+  ["indCountryTag", "demoCountryTag", "regionCountryTag"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = APP.countryName;
+  });
+}
+
+async function loadCountry(slug) {
+  const statusEl = document.getElementById("countryLoadStatus");
+  if (statusEl) statusEl.textContent = "Loading…";
+  const payload = await fetch(`data/countries/${slug}.json`).then(r => r.json());
+  APP.countrySlug = slug;
+  APP.countryName = payload.country;
+  APP.countryPayload = payload;
+  APP.records = decodeCountryPayload(payload);
+  if (statusEl) statusEl.textContent = `${payload.country} · n=${payload.n} · ${payload.regions.length} regions`;
+  updateCountryTags();
+}
+
+/** Convert columnar, integer-coded country payload into the array-of-objects shape the stats engine expects. */
+function decodeCountryPayload(payload) {
+  const n = payload.n;
+  const demo = payload.demo;
+  const indVars = Object.keys(payload.ind);
+  const orders = {};
+  indVars.forEach(v => { orders[v] = (APP.indicators[v] && APP.indicators[v].order) || []; });
+  const records = new Array(n);
+  for (let i = 0; i < n; i++) {
+    const ind = {};
+    for (const v of indVars) {
+      const c = payload.ind[v][i];
+      ind[v] = (c === null || c === undefined) ? null : orders[v][c];
+    }
+    records[i] = {
+      region: demo.region[i], urbrur: demo.urbrur[i], gender: demo.gender[i],
+      age: demo.age[i], age_group: demo.age_group[i], education: demo.education[i],
+      religion: demo.religion[i], lpi: demo.lpi[i], lpi_cat: demo.lpi_cat[i],
+      weight: demo.weight_within[i], weight_combined: demo.weight_combined[i],
+      ind,
+    };
+  }
+  return records;
+}
+
+function countrySlugFor(name) {
+  const c = APP.meta.countries.find(c => c.name === name);
+  return c ? c.slug : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -68,7 +150,7 @@ function switchView(viewKey) {
   document.getElementById("view-" + viewKey).classList.add("active");
   document.getElementById("topbarTitle").textContent = VIEW_TITLES[viewKey];
   document.getElementById("sidebar").classList.remove("open");
-  window.scrollTo({ top: 0, behavior: "instant" in window ? "instant" : "auto" });
+  window.scrollTo({ top: 0 });
 }
 
 function initNav() {
@@ -80,7 +162,7 @@ function initNav() {
   });
 }
 
-/** Jump to Indicator Explorer with a specific indicator (and optional filters) preselected. */
+/** Jump to Indicator Explorer with a specific indicator (and optional filters) preselected, in the current focus country. */
 function goToIndicatorView(varKey, filters) {
   const meta = APP.indicators[varKey];
   document.getElementById("themeSelect").value = meta.theme;
@@ -91,12 +173,21 @@ function goToIndicatorView(varKey, filters) {
   switchView("indicator");
 }
 
-/** Jump to Regional Intelligence with a region preselected. */
 function goToRegionalView(regionName, varKey) {
   if (varKey) document.getElementById("regionIndicatorSelect").value = varKey;
   APP.regionSelected = regionName;
   renderRegional();
   switchView("regional");
+}
+
+/** Jump to Compare Countries with a specific indicator preselected. */
+function goToCompareView(varKey) {
+  const meta = APP.indicators[varKey];
+  document.getElementById("compareThemeSelect").value = meta.theme;
+  populateCompareIndicatorSelect();
+  document.getElementById("compareIndicatorSelect").value = varKey;
+  renderCompare();
+  switchView("compare");
 }
 
 function initTheme() {
@@ -109,7 +200,6 @@ function initTheme() {
     document.documentElement.setAttribute("data-theme", next);
     localStorage.setItem("ab-theme", next);
     updateThemeBtn(next);
-    // redraw charts so colors track theme (Chart.js caches canvas gradients otherwise)
     Object.values(APP.charts).forEach(c => c && c.update());
   });
 }
@@ -118,10 +208,8 @@ function updateThemeBtn(mode) {
 }
 
 // ---------------------------------------------------------------------------
-// Core stats engine
+// Core stats engine (operates on APP.records — the current focus country)
 // ---------------------------------------------------------------------------
-
-/** filters: { field: value | array-of-values }. null/undefined/'' entries are ignored. */
 function applyFilters(records, filters) {
   const active = Object.entries(filters || {}).filter(([, v]) => v !== null && v !== undefined && v !== "" && !(Array.isArray(v) && v.length === 0));
   if (active.length === 0) return records;
@@ -132,7 +220,6 @@ function applyFilters(records, filters) {
   }));
 }
 
-/** Weighted distribution over an indicator's declared value order. Returns {labels, pcts, n, counts} */
 function weightedDistribution(records, varKey) {
   const meta = APP.indicators[varKey];
   const order = meta.order;
@@ -148,7 +235,6 @@ function weightedDistribution(records, varKey) {
   return { labels, pcts, n, total };
 }
 
-/** Weighted % of respondents whose response is in the indicator's "positive" set. Returns {pct, n} or {pct:null,n:0} */
 function weightedFavorable(records, varKey) {
   const meta = APP.indicators[varKey];
   if (!meta.positive) return { pct: null, n: 0 };
@@ -163,7 +249,6 @@ function weightedFavorable(records, varKey) {
   return { pct: den ? +(100 * num / den).toFixed(1) : null, n };
 }
 
-/** Group `records` by `groupField`, compute weightedFavorable of varKey within each group. */
 function groupFavorable(records, varKey, groupField) {
   const groups = {};
   for (const r of records) {
@@ -178,7 +263,6 @@ function groupFavorable(records, varKey, groupField) {
 
 function fmtPct(v) { return v === null || v === undefined ? "—" : v.toFixed(1) + "%"; }
 
-/** Render a sortable HTML table. columns: [{key,label,numeric}], rows: [{...}] */
 function renderSortableTable(containerId, columns, rows, initialSortKey) {
   const container = document.getElementById(containerId);
   if (!container) return;
@@ -206,7 +290,7 @@ function renderSortableTable(containerId, columns, rows, initialSortKey) {
 }
 
 // ---------------------------------------------------------------------------
-// Chart helper
+// Chart helpers
 // ---------------------------------------------------------------------------
 function ink() { return getComputedStyle(document.documentElement).getPropertyValue("--ink").trim(); }
 function inkSoft() { return getComputedStyle(document.documentElement).getPropertyValue("--ink-soft").trim(); }
@@ -232,7 +316,13 @@ function barConfig(labels, data, opts = {}) {
       responsive: true, maintainAspectRatio: false,
       onClick: opts.onClick ? (evt, elements) => { if (elements.length) opts.onClick(elements[0].index); } : undefined,
       onHover: opts.onClick ? (evt, elements) => { evt.native.target.style.cursor = elements.length ? "pointer" : "default"; } : undefined,
-      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${c.formattedValue}%` } } },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: c => ` ${c.formattedValue}%` } },
+        annotation: opts.refLine != null ? {
+          annotations: { line1: { type: "line", [opts.horizontal ? "xMin" : "yMin"]: opts.refLine, [opts.horizontal ? "xMax" : "yMax"]: opts.refLine, borderColor: PALETTE[3], borderWidth: 2, borderDash: [6, 4] } }
+        } : undefined,
+      },
       scales: {
         x: { grid: { color: line() }, ticks: { callback: v => (opts.horizontal ? v + "%" : v) } },
         y: { grid: { color: opts.horizontal ? "transparent" : line() }, ticks: { callback: v => (opts.horizontal ? v : v + "%") } },
@@ -242,84 +332,84 @@ function barConfig(labels, data, opts = {}) {
 }
 
 // ---------------------------------------------------------------------------
-// EXECUTIVE BRIEFING
+// EXECUTIVE BRIEFING (continental — no per-country fetch needed)
 // ---------------------------------------------------------------------------
 function renderExecutive() {
-  const e = APP.exec;
+  const h = APP.continental.headline;
   const kpis = [
-    { label: "Country's economic condition, positive", value: e.econ_condition_positive_pct, tag: e.econ_condition_positive_pct < 40 ? "bad" : "good", varKey: "Q4A" },
-    { label: "Support for democracy", value: e.support_democracy_pct, tag: e.support_democracy_pct >= 60 ? "good" : "neutral", varKey: "Q22" },
-    { label: "Satisfied with democracy", value: e.satisfied_democracy_pct, tag: e.satisfied_democracy_pct >= 50 ? "good" : "bad", varKey: "Q33" },
-    { label: "Approve of President's performance", value: e.president_approval_pct, tag: e.president_approval_pct >= 50 ? "good" : "bad", varKey: "Q48A" },
-    { label: "Corruption perceived to have worsened", value: e.corruption_worsened_pct, tag: "bad", varKey: "Q39A" },
-    { label: "Household electricity grid access", value: e.electricity_access_pct, tag: "good", varKey: "Q93A" },
-    { label: "Mobile internet access", value: e.internet_access_pct, tag: "good", varKey: "Q90H" },
-    { label: "High lived poverty", value: e.high_lived_poverty_pct, tag: "bad", varKey: null, demoFilter: { lpi_cat: "High lived poverty" } },
+    { label: "Country's economic condition, positive", value: h.econ_condition_positive_pct, tag: h.econ_condition_positive_pct < 40 ? "bad" : "good", varKey: "Q4A" },
+    { label: "Support for democracy", value: h.support_democracy_pct, tag: h.support_democracy_pct >= 60 ? "good" : "neutral", varKey: "Q23" },
+    { label: "Satisfied with democracy", value: h.satisfied_democracy_pct, tag: h.satisfied_democracy_pct >= 50 ? "good" : "bad", varKey: "Q31" },
+    { label: "Approve of President's performance", value: h.president_approval_pct, tag: h.president_approval_pct >= 50 ? "good" : "bad", varKey: "Q47A" },
+    { label: "Corruption perceived to have worsened", value: h.corruption_worsened_pct, tag: "bad", varKey: "Q39A" },
+    { label: "Household electricity grid access", value: h.electricity_access_pct, tag: "good", varKey: "Q92A" },
+    { label: "Mobile internet access", value: h.internet_access_pct, tag: "good", varKey: "Q90G" },
+    { label: "Trust in the Police", value: h.trust_police_pct, tag: h.trust_police_pct >= 50 ? "good" : "neutral", varKey: "Q37G" },
   ];
   document.getElementById("execKpis").innerHTML = kpis.map((k, i) => `
     <div class="kpi clickable" data-kpi-idx="${i}">
       <div class="kpi-label">${k.label}</div>
       <div class="kpi-value">${fmtPct(k.value)}</div>
       <span class="kpi-tag tag-${k.tag}">${k.tag === "good" ? "Favourable" : k.tag === "bad" ? "Watch" : "Mixed"}</span>
-      <div class="click-hint">${k.varKey ? "Explore in Indicator Explorer →" : "Explore in Demographic Intelligence →"}</div>
+      <div class="click-hint">Explore across all 39 countries →</div>
     </div>`).join("");
   document.querySelectorAll("#execKpis .kpi").forEach((el, i) => {
-    el.addEventListener("click", () => {
-      const k = kpis[i];
-      if (k.varKey) goToIndicatorView(k.varKey);
-      else { switchView("demographic"); setTimeout(() => { document.querySelector('.demoFilterSelect[data-field="lpi_cat"]').value = k.demoFilter.lpi_cat; renderDemographic(); }, 50); }
-    });
+    el.addEventListener("click", () => goToCompareView(kpis[i].varKey));
   });
 
   const tickerItems = [
-    `n=<b>${e.sample_size}</b> respondents`, `<b>${e.regions_covered}</b> regions covered`,
-    `Right direction: <b>${fmtPct(e.right_direction_pct)}</b>`,
-    `Trust president: <b>${fmtPct(e.trust_president_pct)}</b>`,
-    `Trust police: <b>${fmtPct(e.trust_police_pct)}</b>`,
-    `Presidency seen as corrupt: <b>${fmtPct(e.corruption_pres_office_high_pct)}</b>`,
-    `Avg. lived poverty index: <b>${e.avg_lived_poverty_index}</b> / 4`,
+    `n=<b>${APP.continental.n_total}</b> respondents`, `<b>${APP.continental.n_countries}</b> countries`,
+    `Support democracy: <b>${fmtPct(h.support_democracy_pct)}</b>`,
+    `Trust president: <b>${fmtPct(h.trust_president_pct)}</b>`,
+    `Trust police: <b>${fmtPct(h.trust_police_pct)}</b>`,
+    `Corruption seen as worsening: <b>${fmtPct(h.corruption_worsened_pct)}</b>`,
+    `Internet access: <b>${fmtPct(h.internet_access_pct)}</b>`,
   ];
   document.getElementById("execTicker").innerHTML = tickerItems.concat(tickerItems).map(t => `<span>${t}</span>`).join("");
 
-  // Rule-based executive insights (plain sentences derived directly from KPIs — no generative text)
   const insights = [];
-  if (e.right_direction_pct < 25) insights.push(`Only ${fmtPct(e.right_direction_pct)} of citizens say the country is going in the right direction — a strong signal of public dissatisfaction with the current trajectory.`);
-  if (e.support_democracy_pct - e.satisfied_democracy_pct > 15) insights.push(`Support for democracy as a system (${fmtPct(e.support_democracy_pct)}) runs well ahead of satisfaction with how it is working in practice (${fmtPct(e.satisfied_democracy_pct)}) — a gap of ${(e.support_democracy_pct - e.satisfied_democracy_pct).toFixed(1)} points that suggests a performance problem, not a legitimacy problem.`);
-  if (e.corruption_worsened_pct > 60) insights.push(`${fmtPct(e.corruption_worsened_pct)} of citizens believe corruption has increased over the past year, and Corruption ranks among the top named problems facing the country.`);
-  if (e.president_approval_pct < 40) insights.push(`Presidential approval sits at ${fmtPct(e.president_approval_pct)}, below the halfway mark — worth tracking against economic sentiment, which is also weak.`);
-  if (e.electricity_access_pct - e.internet_access_pct > 20) insights.push(`Grid electricity access (${fmtPct(e.electricity_access_pct)}) is well ahead of mobile internet access (${fmtPct(e.internet_access_pct)}) — a meaningful digital divide remains even where basic infrastructure has reached most households.`);
+  if (h.econ_condition_positive_pct < 30) insights.push(`Only ${fmtPct(h.econ_condition_positive_pct)} of respondents across the continent rate their country's economic condition positively — a strong signal of widespread economic strain.`);
+  if (h.support_democracy_pct - h.satisfied_democracy_pct > 20) insights.push(`Support for democracy as a system (${fmtPct(h.support_democracy_pct)}) runs well ahead of satisfaction with how it is working in practice (${fmtPct(h.satisfied_democracy_pct)}) — a gap of ${(h.support_democracy_pct - h.satisfied_democracy_pct).toFixed(1)} points continent-wide, suggesting a performance problem rather than a legitimacy problem for democracy itself.`);
+  if (h.corruption_worsened_pct > 55) insights.push(`A majority (${fmtPct(h.corruption_worsened_pct)}) of respondents across 39 countries believe corruption has increased over the past year.`);
+  if (h.president_approval_pct < 55) insights.push(`Presidential approval averages ${fmtPct(h.president_approval_pct)} across the continent — worth cross-referencing against each country's economic sentiment in Compare Countries.`);
+  if (h.electricity_access_pct - h.internet_access_pct > 5) insights.push(`Grid electricity access (${fmtPct(h.electricity_access_pct)}) outpaces mobile internet access (${fmtPct(h.internet_access_pct)}) continent-wide — a digital divide that persists even where basic infrastructure has reached most households.`);
   document.getElementById("execInsights").innerHTML = insights.map((t, i) => `<div class="finding"><span class="fn-badge">${i + 1}</span><span>${t}</span></div>`).join("");
 
-  document.getElementById("execMip").innerHTML = e.top_problems.map(p => `
+  document.getElementById("execMip").innerHTML = APP.continental.top_problems.map(p => `
     <div class="rank-row clickable" data-mip="1">
       <div class="rank-name">${p.problem}</div>
-      <div class="rank-track"><div class="rank-fill" style="width:${Math.min(100, p.pct * 4)}%"></div></div>
+      <div class="rank-track"><div class="rank-fill" style="width:${Math.min(100, p.pct * 6)}%"></div></div>
       <div class="rank-val">${p.pct}%</div>
     </div>`).join("");
-  document.querySelectorAll('#execMip [data-mip]').forEach(el => el.addEventListener("click", () => goToIndicatorView("Q46PT1")));
+  document.querySelectorAll('#execMip [data-mip]').forEach(el => el.addEventListener("click", () => goToIndicatorView("Q45PT1")));
 
-  // Direction of country by region
-  const regionGroups = groupFavorable(APP.records, "Q3", "region");
-  const rEntries = Object.entries(regionGroups).filter(([, v]) => v.pct !== null).sort((a, b) => b[1].pct - a[1].pct);
-  makeChart("execRegionChart", barConfig(rEntries.map(([k]) => k), rEntries.map(([, v]) => v.pct), { horizontal: true, colors: PALETTE[0], thick: 14, onClick: (i) => goToRegionalView(rEntries[i][0], "Q3") }));
+  // Country ranking on "direction of the country" (top 7 + bottom 6 of 39)
+  const q3 = APP.aggregates["Q3"];
+  const entries = Object.entries(q3).filter(([k, v]) => k !== "__continental__" && v.pct !== null).sort((a, b) => b[1].pct - a[1].pct);
+  const shown = entries.slice(0, 7).concat(entries.slice(-6));
+  makeChart("execRegionChart", barConfig(shown.map(([k]) => k), shown.map(([, v]) => v.pct), {
+    horizontal: true, colors: PALETTE[0], thick: 13,
+    onClick: (i) => { const slug = countrySlugFor(shown[i][0]); if (slug) { setFocusCountry(slug); switchView("country"); } },
+  }));
 
-  // Trust in institutions, national
-  const trustVars = ["Q37A", "Q37B", "Q37C", "Q37G", "Q37I", "Q37K", "Q37M"];
+  // Trust in institutions, continental average
+  const trustVars = ["Q37A", "Q37B", "Q37C", "Q37G", "Q37H", "Q37I", "Q37J", "Q37K"];
   const trustLabels = trustVars.map(v => APP.indicators[v].label.replace("Trust: ", ""));
-  const trustVals = trustVars.map(v => weightedFavorable(APP.records, v).pct);
-  makeChart("execTrustChart", barConfig(trustLabels, trustVals, { horizontal: true, colors: PALETTE[1], thick: 14, onClick: (i) => goToIndicatorView(trustVars[i]) }));
+  const trustVals = trustVars.map(v => (APP.aggregates[v] && APP.aggregates[v].__continental__.pct));
+  makeChart("execTrustChart", barConfig(trustLabels, trustVals, { horizontal: true, colors: PALETTE[1], thick: 16, onClick: (i) => goToIndicatorView(trustVars[i]) }));
 }
 
 // ---------------------------------------------------------------------------
-// COUNTRY INTELLIGENCE CENTRE
+// COUNTRY INTELLIGENCE CENTRE (focus country vs continental average)
 // ---------------------------------------------------------------------------
 function renderCountry() {
-  const m = APP.meta, e = APP.exec;
+  document.getElementById("countryViewTitle").textContent = `${APP.countryName} — Round 9 country profile`;
+  const payload = APP.countryPayload;
   const cards = [
-    { label: "Sample size", value: m.sample_size },
-    { label: "Regions surveyed", value: e.regions_covered },
-    { label: "Fieldwork window", value: m.fieldwork_dates, small: true },
-    { label: "Margin of error", value: m.margin_of_error, small: true },
+    { label: "Sample size", value: payload.n },
+    { label: "Regions surveyed", value: payload.regions.length },
+    { label: "Weighting", value: "withinwt_hh", small: true },
+    { label: "Dataset", value: "Afrobarometer R9 Merge", small: true },
   ];
   document.getElementById("countryStatCards").innerHTML = cards.map(c => `
     <div class="kpi"><div class="kpi-label">${c.label}</div>
@@ -337,19 +427,45 @@ function renderCountry() {
   const ageOrder = ["18-25", "26-35", "36-45", "46-55", "56-65", "66+"];
   makeChart("countryAgeChart", barConfig(ageOrder, ageOrder.map(a => ages[a] || 0), { colors: PALETTE[2] }));
 
+  // vs continental average on headline indicators
+  const headlineVars = ["Q4A", "Q23", "Q31", "Q47A", "Q37G", "Q92A", "Q90G"];
+  const countryVals = headlineVars.map(v => weightedFavorable(APP.records, v).pct);
+  const contVals = headlineVars.map(v => APP.aggregates[v] ? APP.aggregates[v].__continental__.pct : null);
+  makeChart("countryVsContinentChart", {
+    type: "bar",
+    data: {
+      labels: headlineVars.map(v => APP.indicators[v].label),
+      datasets: [
+        { label: APP.countryName, data: countryVals, backgroundColor: PALETTE[0], borderRadius: 6 },
+        { label: "Continental average", data: contVals, backgroundColor: PALETTE[6], borderRadius: 6 },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, indexAxis: "y",
+      plugins: { legend: { position: "top", labels: { boxWidth: 10, font: { size: 11 } } } },
+      scales: { x: { min: 0, max: 100, ticks: { callback: v => v + "%" }, grid: { color: line() } }, y: { grid: { display: false } } },
+    },
+  });
+
+  const econRank = rankCountry("Q4A"), demRank = rankCountry("Q23");
   document.getElementById("countryNarrative").innerHTML = `
-    <div class="insight">Ghanaians surveyed in August 2024 describe an economy under real strain: only <b>${fmtPct(e.econ_condition_positive_pct)}</b> rate the country's economic condition positively, and <b>unemployment</b>, <b>infrastructure</b>, and the <b>cost of living</b> dominate the list of problems citizens most want government to address.</div>
-    <div class="insight">Commitment to democracy as an ideal remains high (<b>${fmtPct(e.support_democracy_pct)}</b> prefer it to any other system), even as satisfaction with its day-to-day performance is far more mixed (<b>${fmtPct(e.satisfied_democracy_pct)}</b>) — a pattern consistent with frustration directed at incumbents and institutions rather than at the democratic system itself.</div>
-    <div class="insight">Corruption perceptions are a standout concern: a majority believe it has worsened over the past year, and the Presidency, Parliament, and the Police are all seen as substantially compromised by a majority of respondents.</div>`;
+    <div class="insight"><b>${APP.countryName}</b> respondents rate their economy positively at <b>${fmtPct(weightedFavorable(APP.records, "Q4A").pct)}</b>, ranking <b>#${econRank.rank} of ${econRank.total}</b> countries surveyed (continental average: ${fmtPct(APP.aggregates["Q4A"].__continental__.pct)}).</div>
+    <div class="insight">Support for democracy stands at <b>${fmtPct(weightedFavorable(APP.records, "Q23").pct)}</b>, ranking <b>#${demRank.rank} of ${demRank.total}</b> (continental average: ${fmtPct(APP.aggregates["Q23"].__continental__.pct)}).</div>`;
 
   document.getElementById("countryMethodBox").innerHTML = `
-    <dl>
-      <dt>Universe</dt><dd>Citizens of Ghana, 18 years and older</dd>
+    <dl style="display:grid;grid-template-columns:150px 1fr;gap:8px 12px;">
+      <dt>Universe</dt><dd>Citizens of ${APP.countryName}, 18 years and older</dd>
       <dt>Design</dt><dd>Nationally representative, random, clustered, stratified, multi-stage area probability sample</dd>
-      <dt>Fieldwork partner</dt><dd>${m.fieldwork_partner}</dd>
-      <dt>Languages</dt><dd>${m.languages.join(", ")}</dd>
+      <dt>Sample</dt><dd>n = ${payload.n} across ${payload.regions.length} regions</dd>
       <dt>Weighting</dt><dd>withinwt_hh — corrects for individual selection probability, region, urban/rural distribution, household &amp; EA size</dd>
-    </dl>`.replace("<dl>", "<dl style='display:grid;grid-template-columns:150px 1fr;gap:8px 12px;'>");
+      <dt>Dataset</dt><dd>Afrobarometer Round 9 Merged Data (39 countries)</dd>
+    </dl>`;
+}
+
+function rankCountry(varKey) {
+  const entries = Object.entries(APP.aggregates[varKey]).filter(([k, v]) => k !== "__continental__" && v.pct !== null).sort((a, b) => b[1].pct - a[1].pct);
+  const idx = entries.findIndex(([k]) => k === APP.countryName);
+  return { rank: idx + 1, total: entries.length };
 }
 
 function groupCount(records, field) {
@@ -373,12 +489,12 @@ function initIndicatorExplorer() {
   themeSel.addEventListener("change", () => { populateIndicatorSelect(); });
   document.getElementById("indicatorSelect").addEventListener("change", renderIndicatorExplorer);
 
-  ["ind_region", "ind_urbrur", "ind_gender", "ind_age_group", "ind_education"].forEach(() => {});
   const filterBar = document.getElementById("indFilterBar");
   filterBar.innerHTML = filterSelectHTML("ind", ["region", "urbrur", "gender", "age_group", "education"]);
   filterBar.querySelectorAll("select").forEach(s => s.addEventListener("change", renderIndicatorExplorer));
 
   populateIndicatorSelect();
+  updateCountryTags();
 
   document.getElementById("btnExportPng").addEventListener("click", () => exportChartPng("indDistChart", "distribution"));
   document.getElementById("btnExportCsv").addEventListener("click", exportIndicatorCsv);
@@ -388,7 +504,7 @@ function initIndicatorExplorer() {
 }
 
 function filterSelectHTML(prefix, fields) {
-  const labelMap = { region: "Region", urbrur: "Setting", gender: "Gender", age_group: "Age", education: "Education", religion: "Religion", employment: "Employment", lpi_cat: "Lived poverty" };
+  const labelMap = { region: "Region", urbrur: "Setting", gender: "Gender", age_group: "Age", education: "Education", religion: "Religion", lpi_cat: "Lived poverty" };
   return fields.map(f => {
     const values = [...new Set(APP.records.map(r => r[f]).filter(Boolean))];
     if (f === "age_group") values.sort((a, b) => ["18-25", "26-35", "36-45", "46-55", "56-65", "66+"].indexOf(a) - ["18-25", "26-35", "36-45", "46-55", "56-65", "66+"].indexOf(b));
@@ -401,8 +517,16 @@ function filterSelectHTML(prefix, fields) {
 function populateIndicatorSelect() {
   const theme = document.getElementById("themeSelect").value || themeList()[0];
   const sel = document.getElementById("indicatorSelect");
+  const prevVal = sel.value;
   const opts = Object.entries(APP.indicators).filter(([, v]) => v.theme === theme);
   sel.innerHTML = opts.map(([k, v]) => `<option value="${k}">${v.label}</option>`).join("");
+  if (opts.some(([k]) => k === prevVal)) sel.value = prevVal;
+  // refresh demographic filter option lists too, since the focus country may have changed
+  const filterBar = document.getElementById("indFilterBar");
+  if (filterBar) {
+    filterBar.innerHTML = filterSelectHTML("ind", ["region", "urbrur", "gender", "age_group", "education"]);
+    filterBar.querySelectorAll("select").forEach(s => s.addEventListener("change", renderIndicatorExplorer));
+  }
   renderIndicatorExplorer();
 }
 
@@ -430,7 +554,6 @@ function renderIndicatorExplorer() {
     [{ key: "response", label: "Response" }, { key: "pct", label: "%", numeric: true, pct: true }],
     dist.labels.map((l, i) => ({ response: l, pct: dist.pcts[i] })), "pct");
 
-  // Regional comparison (only meaningful if favourable set defined)
   const regionMetricEl = document.getElementById("indRegionMetric");
   if (meta.positive) {
     regionMetricEl.textContent = "% favourable, by region";
@@ -461,20 +584,18 @@ function renderIndicatorExplorer() {
       regions.map((reg, i) => ({ region: reg, pct: modal[i] })), "pct");
   }
 
-  // Urban / rural
   if (meta.positive) {
     const ug = groupFavorable(filtered, varKey, "urbrur");
-    makeChart("indUrbanChart", barConfig(Object.keys(ug), Object.values(ug).map(v => v.pct), { colors: [PALETTE[0], PALETTE[1]] }));
+    makeChart("indUrbanChart", barConfig(Object.keys(ug), Object.values(ug).map(v => v.pct), { colors: [PALETTE[0], PALETTE[1], PALETTE[2]] }));
   } else {
-    const cats = ["Urban", "Rural"].map(u => {
+    const cats = [...new Set(filtered.map(r => r.urbrur).filter(Boolean))].map(u => {
       const sub = filtered.filter(r => r.urbrur === u);
       const d = weightedDistribution(sub, varKey);
       return Math.max(...d.pcts);
     });
-    makeChart("indUrbanChart", barConfig(["Urban", "Rural"], cats, { colors: [PALETTE[0], PALETTE[1]] }));
+    makeChart("indUrbanChart", barConfig([...new Set(filtered.map(r => r.urbrur).filter(Boolean))], cats, { colors: [PALETTE[0], PALETTE[1], PALETTE[2]] }));
   }
 
-  // Demographic comparison — gender / age / education, all as favourable% if available, else n/a
   const demoLabels = [], demoVals = [], demoColors = [];
   if (meta.positive) {
     const genders = groupFavorable(filtered, varKey, "gender");
@@ -482,10 +603,9 @@ function renderIndicatorExplorer() {
     const ages = groupFavorable(filtered, varKey, "age_group");
     ["18-25", "26-35", "36-45", "46-55", "56-65", "66+"].forEach(a => { if (ages[a]) { demoLabels.push("Age: " + a); demoVals.push(ages[a].pct); demoColors.push(PALETTE[1]); } });
     const edus = groupFavorable(filtered, varKey, "education");
-    ["No formal schooling", "Primary", "Secondary", "Post-secondary (non-university)", "University"].forEach(ed => { if (edus[ed]) { demoLabels.push("Edu: " + ed); demoVals.push(edus[ed].pct); demoColors.push(PALETTE[2]); } });
+    ["No formal education", "Primary", "Secondary", "Post-secondary"].forEach(ed => { if (edus[ed]) { demoLabels.push("Edu: " + ed); demoVals.push(edus[ed].pct); demoColors.push(PALETTE[2]); } });
     makeChart("indDemoChart", barConfig(demoLabels, demoVals, { horizontal: true, colors: demoColors, thick: 14 }));
   } else {
-    document.getElementById("indDemoChart").getContext("2d");
     if (APP.charts["indDemoChart"]) APP.charts["indDemoChart"].destroy();
     makeChart("indDemoChart", { type: "bar", data: { labels: [], datasets: [] }, options: { plugins: { legend: { display: false } } } });
   }
@@ -494,8 +614,9 @@ function renderIndicatorExplorer() {
     <dl style="display:grid;grid-template-columns:150px 1fr;gap:8px 12px;">
       <dt>Variable</dt><dd class="mono">${varKey}</dd>
       <dt>Theme</dt><dd>${meta.theme}</dd>
-      <dt>Source</dt><dd>Afrobarometer Round 10, Ghana (2024)</dd>
-      <dt>Base</dt><dd>n = ${dist.n} valid responses${Object.keys(filters).length ? " within current filter" : " (national)"}</dd>
+      <dt>Country</dt><dd>${APP.countryName}</dd>
+      <dt>Source</dt><dd>Afrobarometer Round 9 Merged Data</dd>
+      <dt>Base</dt><dd>n = ${dist.n} valid responses${Object.keys(filters).length ? " within current filter" : ""}</dd>
       <dt>Weighting</dt><dd>withinwt_hh</dd>
     </dl>`;
 }
@@ -516,13 +637,22 @@ function exportIndicatorCsv() {
   let csv = "response,percent\n";
   dist.labels.forEach((l, i) => csv += `"${l}",${dist.pcts[i]}\n`);
   const blob = new Blob([csv], { type: "text/csv" });
-  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `${varKey}_distribution.csv`; a.click();
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `${varKey}_${APP.countrySlug}_distribution.csv`; a.click();
 }
 
 // ---------------------------------------------------------------------------
 // DEMOGRAPHIC INTELLIGENCE
 // ---------------------------------------------------------------------------
 function initDemographicIntelligence() {
+  const themeSel = document.getElementById("demoIndicatorSelect");
+  themeSel.innerHTML = Object.entries(APP.indicators).map(([k, v]) => `<option value="${k}">${v.theme} — ${v.label}</option>`).join("");
+  themeSel.addEventListener("change", renderDemographic);
+  buildDemoFilterBar();
+  updateCountryTags();
+  renderDemographic();
+}
+
+function buildDemoFilterBar() {
   const bar = document.getElementById("demoFilterBar");
   bar.innerHTML = `<div class="grid cols-2">` + DEMO_FIELDS.map(f => {
     const values = [...new Set(APP.records.map(r => r[f.key]).filter(Boolean))].sort();
@@ -530,14 +660,10 @@ function initDemographicIntelligence() {
       <select data-field="${f.key}" class="demoFilterSelect"><option value="">All</option>${values.map(v => `<option value="${v}">${v}</option>`).join("")}</select></div>`;
   }).join("") + `</div>`;
   bar.querySelectorAll(".demoFilterSelect").forEach(s => s.addEventListener("change", renderDemographic));
-
-  const themeSel = document.getElementById("demoIndicatorSelect");
-  themeSel.innerHTML = Object.entries(APP.indicators).map(([k, v]) => `<option value="${k}">${v.theme} — ${v.label}</option>`).join("");
-  themeSel.addEventListener("change", renderDemographic);
-  renderDemographic();
 }
 
 function renderDemographic() {
+  buildDemoFilterBar(); // refresh option lists in case focus country changed
   const filters = {};
   document.querySelectorAll(".demoFilterSelect").forEach(s => { if (s.value) filters[s.dataset.field] = s.value; });
   const segment = applyFilters(APP.records, filters);
@@ -555,7 +681,7 @@ function renderDemographic() {
     const seg = weightedFavorable(segment, varKey);
     makeChart("demoCompareChart", {
       type: "bar",
-      data: { labels: ["National average", "Selected segment"], datasets: [{ data: [natl.pct, seg.pct], backgroundColor: [PALETTE[6], PALETTE[0]], borderRadius: 8, maxBarThickness: 70 }] },
+      data: { labels: [`${APP.countryName} average`, "Selected segment"], datasets: [{ data: [natl.pct, seg.pct], backgroundColor: [PALETTE[6], PALETTE[0]], borderRadius: 8, maxBarThickness: 70 }] },
       options: { responsive: true, maintainAspectRatio: false, indexAxis: "y", plugins: { legend: { display: false } }, scales: { x: { min: 0, max: 100, ticks: { callback: v => v + "%" }, grid: { color: line() } }, y: { grid: { display: false } } } },
     });
   } else {
@@ -565,33 +691,26 @@ function renderDemographic() {
 }
 
 // ---------------------------------------------------------------------------
-// REGIONAL INTELLIGENCE
+// REGIONAL INTELLIGENCE (regions of the current focus country; layout is
+// auto-generated, not hand-placed, since region sets differ per country)
 // ---------------------------------------------------------------------------
-// Rough NW->SE schematic grid position for each region (4 columns), north at top.
-const REGION_GRID_ORDER = [
-  "Upper West", "Upper East", "North East", "Savannah",
-  "Northern", "Bono East", "Bono", "Oti",
-  "Ahafo", "Ashanti", "Volta", "Western North",
-  "Western", "Central", "Eastern", "Greater Accra",
-];
-
 function initRegionalIntelligence() {
   const sel = document.getElementById("regionIndicatorSelect");
   sel.innerHTML = Object.entries(APP.indicators).filter(([, v]) => v.positive).map(([k, v]) => `<option value="${k}">${v.theme} — ${v.label}</option>`).join("");
   sel.value = "Q4A";
   sel.addEventListener("change", renderRegional);
   document.getElementById("btnClearRegion").addEventListener("click", () => { APP.regionSelected = null; renderRegional(); });
+  updateCountryTags();
   renderRegional();
 }
 
 function renderRegional() {
   const varKey = document.getElementById("regionIndicatorSelect").value;
-  const meta = APP.indicators[varKey];
   const byRegion = groupFavorable(APP.records, varKey, "region");
+  const regionsSorted = [...new Set(APP.records.map(r => r.region).filter(Boolean))].sort();
 
   const grid = document.getElementById("regionGrid");
-  grid.innerHTML = REGION_GRID_ORDER.map(reg => {
-    if (!reg) return `<div></div>`;
+  grid.innerHTML = regionsSorted.map(reg => {
     const v = byRegion[reg];
     const pct = v && v.pct !== null ? v.pct : null;
     const selected = APP.regionSelected === reg ? "selected" : "";
@@ -629,7 +748,7 @@ function renderRegional() {
     detailCard.style.display = "";
     document.getElementById("regionDetailTitle").textContent = APP.regionSelected + " — detail";
     const regionRecords = APP.records.filter(r => r.region === APP.regionSelected);
-    const statVars = ["Q4A", "Q48A", "Q37A", "Q90H"];
+    const statVars = ["Q4A", "Q47A", "Q37A", "Q90G"];
     document.getElementById("regionDetailStats").innerHTML = statVars.map(v => {
       const f = weightedFavorable(regionRecords, v);
       return `<div class="kpi"><div class="kpi-label">${APP.indicators[v].label}</div><div class="kpi-value">${fmtPct(f.pct)}</div></div>`;
@@ -640,11 +759,67 @@ function renderRegional() {
 }
 
 // ---------------------------------------------------------------------------
-// POLICY INSIGHT CENTRE (rule-based)
+// COMPARE COUNTRIES (all 39, from precomputed aggregates — no microdata fetch)
+// ---------------------------------------------------------------------------
+function initCompareCountries() {
+  const themeSel = document.getElementById("compareThemeSelect");
+  const themesWithAgg = [...new Set(Object.entries(APP.indicators).filter(([k]) => APP.aggregates[k]).map(([, v]) => v.theme))];
+  themeSel.innerHTML = themesWithAgg.map(t => `<option value="${t}">${t}</option>`).join("");
+  themeSel.addEventListener("change", populateCompareIndicatorSelect);
+  document.getElementById("compareIndicatorSelect").addEventListener("change", renderCompare);
+  document.getElementById("btnCompareExportCsv").addEventListener("click", exportCompareCsv);
+  populateCompareIndicatorSelect();
+}
+
+function populateCompareIndicatorSelect() {
+  const theme = document.getElementById("compareThemeSelect").value;
+  const sel = document.getElementById("compareIndicatorSelect");
+  const prevVal = sel.value;
+  const opts = Object.entries(APP.indicators).filter(([k, v]) => v.theme === theme && APP.aggregates[k]);
+  sel.innerHTML = opts.map(([k, v]) => `<option value="${k}">${v.label}</option>`).join("");
+  if (opts.some(([k]) => k === prevVal)) sel.value = prevVal;
+  renderCompare();
+}
+
+function renderCompare() {
+  const varKey = document.getElementById("compareIndicatorSelect").value;
+  if (!varKey) return;
+  const meta = APP.indicators[varKey];
+  document.getElementById("compareThemeBadge").textContent = meta.theme;
+  document.getElementById("compareQTitle").textContent = meta.label;
+  document.getElementById("compareQWording").textContent = "Survey question: “" + meta.question + "”";
+
+  const data = APP.aggregates[varKey];
+  const cont = data.__continental__;
+  document.getElementById("compareContinentalVal").textContent = fmtPct(cont.pct);
+
+  const entries = Object.entries(data).filter(([k, v]) => k !== "__continental__" && v.pct !== null).sort((a, b) => b[1].pct - a[1].pct);
+  makeChart("compareRankChart", barConfig(entries.map(([k]) => k), entries.map(([, v]) => v.pct), {
+    horizontal: true, colors: PALETTE[0], thick: 14, refLine: cont.pct,
+    onClick: (i) => { const slug = countrySlugFor(entries[i][0]); if (slug) setFocusCountry(slug); },
+  }));
+
+  renderSortableTable("compareTable",
+    [{ key: "country", label: "Country" }, { key: "pct", label: "% favourable", numeric: true, pct: true }, { key: "n", label: "n", numeric: true }],
+    entries.map(([k, v]) => ({ country: k, pct: v.pct, n: v.n })), "pct");
+}
+
+function exportCompareCsv() {
+  const varKey = document.getElementById("compareIndicatorSelect").value;
+  const data = APP.aggregates[varKey];
+  const entries = Object.entries(data).filter(([k, v]) => k !== "__continental__" && v.pct !== null).sort((a, b) => b[1].pct - a[1].pct);
+  let csv = "country,percent,n\n";
+  entries.forEach(([k, v]) => csv += `"${k}",${v.pct},${v.n}\n`);
+  const blob = new Blob([csv], { type: "text/csv" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `${varKey}_country_comparison.csv`; a.click();
+}
+
+// ---------------------------------------------------------------------------
+// POLICY INSIGHT CENTRE (rule-based, scoped to the focus country)
 // ---------------------------------------------------------------------------
 const POLICY_SPLIT_FIELDS = [
-  { key: "gender", labelFn: (a, b) => `between men and women` },
-  { key: "urbrur", labelFn: (a, b) => `between urban and rural residents` },
+  { key: "gender", labelFn: () => `between men and women` },
+  { key: "urbrur", labelFn: (a, b) => `between ${a.toLowerCase()} and ${b.toLowerCase()} residents` },
   { key: "education", labelFn: (a, b) => `by education level (${a} vs. ${b})` },
   { key: "lpi_cat", labelFn: (a, b) => `by lived-poverty band (${a} vs. ${b})` },
   { key: "age_group", labelFn: (a, b) => `by age (${a} vs. ${b})` },
@@ -652,7 +827,7 @@ const POLICY_SPLIT_FIELDS = [
 
 function initPolicyInsightCentre() {
   const sel = document.getElementById("policyThemeSelect");
-  themeList().forEach(t => sel.insertAdjacentHTML("beforeend", `<option value="${t}">${t}</option>`));
+  sel.innerHTML = `<option value="">All themes</option>` + themeList().map(t => `<option value="${t}">${t}</option>`).join("");
   sel.addEventListener("change", renderPolicy);
   document.getElementById("policyGapSelect").addEventListener("change", renderPolicy);
   renderPolicy();
@@ -669,7 +844,7 @@ function renderPolicy() {
 
     POLICY_SPLIT_FIELDS.forEach(split => {
       const groups = groupFavorable(APP.records, varKey, split.key);
-      const entries = Object.entries(groups).filter(([, v]) => v.pct !== null && v.size >= 40);
+      const entries = Object.entries(groups).filter(([, v]) => v.pct !== null && v.size >= 30);
       if (entries.length < 2) return;
       entries.sort((a, b) => b[1].pct - a[1].pct);
       const [topK, topV] = entries[0];
@@ -688,7 +863,7 @@ function renderPolicy() {
   const top = findings.slice(0, 25);
   document.getElementById("policyFindings").innerHTML = top.length
     ? top.map((f, i) => `<div class="finding clickable" data-policy-var="${f.varKey}"><span class="fn-badge">${i + 1}</span><span>${f.text}</span></div>`).join("")
-    : `<div class="finding"><span>No gaps at or above this threshold were found for the selected theme. Try lowering the minimum gap.</span></div>`;
+    : `<div class="finding"><span>No gaps at or above this threshold were found for the selected theme in ${APP.countryName}. Try lowering the minimum gap.</span></div>`;
   document.querySelectorAll('#policyFindings [data-policy-var]').forEach(el => {
     el.addEventListener("click", () => goToIndicatorView(el.dataset.policyVar));
   });
@@ -701,13 +876,11 @@ function renderMethodology() {
   const m = APP.meta;
   document.getElementById("methodSamplingBox").innerHTML = `
     <dl style="display:grid;grid-template-columns:150px 1fr;gap:8px 12px;">
-      <dt>Country</dt><dd>${m.country}</dd>
-      <dt>Round</dt><dd>${m.round} (${m.year})</dd>
-      <dt>Sample size</dt><dd>${m.sample_size}</dd>
-      <dt>Fieldwork</dt><dd>${m.fieldwork_dates}</dd>
-      <dt>Partner</dt><dd>${m.fieldwork_partner}</dd>
-      <dt>Margin of error</dt><dd>${m.margin_of_error}</dd>
-      <dt>Languages</dt><dd>${m.languages.join(", ")}</dd>
+      <dt>Dataset</dt><dd>${m.dataset}</dd>
+      <dt>Round</dt><dd>${m.round}</dd>
+      <dt>Countries</dt><dd>${m.countries.length}</dd>
+      <dt>Total sample</dt><dd>${m.n_total}</dd>
+      <dt>Source file</dt><dd class="mono" style="font-size:11px;">${m.source_file}</dd>
       <dt>Codebook</dt><dd class="mono" style="font-size:11px;">${m.codebook_source}</dd>
     </dl>`;
   document.getElementById("methodCitation").textContent = m.citation;
@@ -719,7 +892,7 @@ function renderMethodology() {
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "indicator_registry.json"; a.click();
   });
   document.getElementById("dlCodebookNote").addEventListener("click", () => {
-    const txt = `Afrobarometer Insight Platform — codebook reference\n\nSource: ${m.codebook_source}\nCitation: ${m.citation}\n\nAll ${Object.keys(APP.indicators).length} indicators in this platform were transcribed and cross-checked against the official Afrobarometer Round 10 Ghana codebook. See indicator_registry.json for full question wording and response scales.`;
+    const txt = `Afrobarometer Insight Platform — codebook reference\n\nSource: ${m.codebook_source}\nCitation: ${m.citation}\n\nAll ${Object.keys(APP.indicators).length} indicators in this platform were matched against the official Afrobarometer Round 9 merge codebook, with value labels and response scales pulled programmatically from the dataset's own embedded SPSS metadata (not hand-transcribed) to avoid mismatch. See indicator_registry.json for full question wording and response scales.`;
     const blob = new Blob([txt], { type: "text/plain" });
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "codebook_reference.txt"; a.click();
   });
@@ -734,11 +907,12 @@ function qaCtx() {
   return {
     records: APP.records, indicators: APP.indicators,
     regionNames: [...new Set(APP.records.map(r => r.region).filter(Boolean))],
+    countryNames: APP.meta.countries.map(c => c.name),
+    aggregates: APP.aggregates, focusCountry: APP.countryName,
     applyFilters, weightedDistribution, weightedFavorable, groupFavorable,
   };
 }
 
-/** Render one answer object (from qaAnswer or a special question) into a DOM node. Returns the node. */
 function renderAnswerNode(ans) {
   const uid = "qac_" + (qaChartCounter++);
   const wrap = document.createElement("div");
@@ -749,24 +923,31 @@ function renderAnswerNode(ans) {
   wrap.innerHTML = `
     <div>${ans.narrative}</div>
     ${ans.question ? `<div class="qa-note">Survey question: "${ans.question}"</div>` : ""}
-    <div class="qa-chart-box"><canvas id="${uid}"></canvas></div>
-    ${ans.varKey ? `<div class="qa-actions"><button class="btn" data-open-var="${ans.varKey}">Open in Indicator Explorer →</button></div>` : ""}
+    ${ans.chart ? `<div class="qa-chart-box"><canvas id="${uid}"></canvas></div>` : ""}
+    <div class="qa-actions">
+      ${ans.varKey ? `<button class="btn" data-open-var="${ans.varKey}">Open in Indicator Explorer →</button>` : ""}
+      ${ans.switchCountry ? `<button class="btn" data-switch-country="${ans.switchCountry}">Switch focus country to ${ans.switchCountry} →</button>` : ""}
+    </div>
   `;
-  setTimeout(() => {
-    const el = wrap.querySelector(`#${uid}`);
-    if (el) makeChart(uid, barConfig(ans.chart.labels, ans.chart.data, { horizontal: ans.chart.horizontal, colors: PALETTE[0] }));
-    const btn = wrap.querySelector("[data-open-var]");
-    if (btn) btn.addEventListener("click", () => { goToIndicatorView(btn.dataset.openVar, ans.filters); document.getElementById("assistPanel").classList.remove("open"); });
-  }, 0);
+  if (ans.chart) {
+    setTimeout(() => {
+      const el = wrap.querySelector(`#${uid}`);
+      if (el) makeChart(uid, barConfig(ans.chart.labels, ans.chart.data, { horizontal: ans.chart.horizontal, colors: PALETTE[0], refLine: ans.chart.refLine }));
+    }, 0);
+  }
+  const btn = wrap.querySelector("[data-open-var]");
+  if (btn) btn.addEventListener("click", () => { goToIndicatorView(btn.dataset.openVar, ans.filters); document.getElementById("assistPanel").classList.remove("open"); });
+  const swBtn = wrap.querySelector("[data-switch-country]");
+  if (swBtn) swBtn.addEventListener("click", () => { const slug = countrySlugFor(swBtn.dataset.switchCountry); if (slug) setFocusCountry(slug); });
   return wrap;
 }
 
 const ASSIST_SUGGESTIONS = [
+  "Which country has the highest support for democracy?",
+  "Compare Ghana and Kenya on trust in police",
   "Which region trusts the police least?",
   "Do young people use the internet more?",
   "What's the biggest problem facing the country?",
-  "How do men and women differ on job priority?",
-  "Which region is most positive about direction?",
 ];
 
 function initAssistant() {
@@ -777,11 +958,10 @@ function initAssistant() {
   document.getElementById("assistSuggestRow").innerHTML = ASSIST_SUGGESTIONS.slice(0, 3).map(s => `<span class="pill">${s}</span>`).join("");
   document.querySelectorAll("#assistSuggestRow .pill").forEach(p => p.addEventListener("click", () => runAssistantQuery(p.textContent)));
 
-  // Greeting
   const body = document.getElementById("assistBody");
   const greet = document.createElement("div");
   greet.className = "assist-msg bot";
-  greet.innerHTML = "Ask me anything about the Ghana Round 10 survey — a topic, a region, a demographic group, or a comparison. I run fixed calculations over the real microdata, so every answer is traceable.";
+  greet.innerHTML = `Ask me anything about the Afrobarometer Round 9 survey — a topic, a country, a region within ${APP.countryName} (your current focus country), or a demographic group. I run fixed calculations over the real microdata and precomputed country aggregates, so every answer is traceable.`;
   body.appendChild(greet);
 
   document.getElementById("assistSend").addEventListener("click", sendFromInput);
@@ -820,13 +1000,12 @@ function initQACentre() {
     if (e.key === "Enter" && e.target.value.trim()) runQACentreQuery(e.target.value.trim());
   });
 
-  // Cross-cutting special questions
   const specials = qaSpecialQuestions(qaCtx());
   document.getElementById("qaSpecialList").innerHTML = specials.map((s, i) => `
     <details class="qa-item qa-special"><summary>${s.q}</summary><div class="qa-answer" id="qaSpecial_${i}"></div></details>
   `).join("");
   specials.forEach((s, i) => {
-    document.querySelectorAll("details.qa-special")[i].addEventListener("toggle", function once() {
+    document.querySelectorAll("details.qa-special")[i].addEventListener("toggle", function () {
       const container = document.getElementById(`qaSpecial_${i}`);
       if (container.dataset.rendered) return;
       container.dataset.rendered = "1";
@@ -834,7 +1013,6 @@ function initQACentre() {
     });
   });
 
-  // Per-indicator FAQ grouped by theme (lazy render on open)
   const themeBlocks = document.getElementById("qaThemeBlocks");
   themeBlocks.innerHTML = themeList().map(theme => {
     const items = Object.entries(APP.indicators).filter(([, v]) => v.theme === theme);

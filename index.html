@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Afrobarometer Insight Platform — Ghana Round 10</title>
-<meta name="description" content="An interactive evidence intelligence platform built on Afrobarometer Round 10 survey data for Ghana.">
+<title>Afrobarometer Insight Platform — 39-Country Round 9</title>
+<meta name="description" content="An interactive evidence intelligence platform built on Afrobarometer's Round 9 merged survey data across 39 African countries.">
 <link rel="icon" href="assets/afrobarometer-logo.png">
 <link rel="stylesheet" href="css/style.css">
 <script src="js/vendor/chart.umd.js"></script>
@@ -19,9 +19,15 @@
       <img src="assets/afrobarometer-logo.png" alt="Afrobarometer">
       <div>
         <div class="brand-name">Insight Platform</div>
-        <div class="brand-tag">Prototype · Ghana R10</div>
+        <div class="brand-tag">Prototype · 39-country R9</div>
       </div>
     </div>
+
+    <div class="select-field" style="margin-top:2px;">
+      <label>Focus country</label>
+      <select id="globalCountrySelect"></select>
+    </div>
+    <div class="mini-meta" id="countryLoadStatus" style="margin-top:-8px;"></div>
 
     <nav class="main-nav" id="mainNav">
       <div class="nav-group-label">Overview</div>
@@ -56,15 +62,15 @@
     <div class="topbar">
       <button class="hamburger" id="hamburger" aria-label="Toggle navigation">☰</button>
       <div class="topbar-title" id="topbarTitle">Executive Briefing</div>
-      <div class="topbar-sub" id="topbarSub">Afrobarometer · Round 10 · Ghana · 2024</div>
+      <div class="topbar-sub" id="topbarSub">Afrobarometer · Round 9 · 39 countries · 2021–2023</div>
     </div>
 
     <!-- ======================= EXECUTIVE BRIEFING ======================= -->
     <section class="view active" id="view-executive">
       <div class="view-head">
-        <div class="view-eyebrow">Landing · Updated live from microdata</div>
-        <h1 class="view-title">What Ghanaians told Afrobarometer, and what deserves attention</h1>
-        <p class="view-desc">This is not a static report — every figure below is computed on request from the Round 10 respondent-level dataset, weighted for national representativeness. Use the modules on the left to interrogate the data by theme, region, or demographic group.</p>
+        <div class="view-eyebrow">Landing · Pan-African overview · updated live from microdata</div>
+        <h1 class="view-title">What 39 African countries told Afrobarometer, and what deserves attention</h1>
+        <p class="view-desc">This is not a static report — every figure below is computed on request from the Round 9 merged respondent-level dataset (53,444 interviews across 39 countries), weighted so each country contributes equally to the continental figure. Pick a <b>focus country</b> in the sidebar to drill into Indicator Explorer, Regional Intelligence, and the rest in single-country depth.</p>
       </div>
 
       <div class="grid cols-4" id="execKpis"></div>
@@ -79,17 +85,17 @@
         <div class="card">
           <h3>Top problems citizens want government to address <span class="faint small">(click to explore)</span></h3>
           <div class="rank-list" id="execMip"></div>
-          <p class="small faint mt-12">First-mentioned response to the open "most important problem" question, Q46. Respondents could name up to three; ranked here by share naming each as their top concern.</p>
+          <p class="small faint mt-12">First-mentioned response to the open "most important problem" question, weighted across all 39 countries equally. Respondents could name up to three; ranked here by share naming each as their top concern.</p>
         </div>
       </div>
 
       <div class="grid cols-2 mt-16">
         <div class="card">
-          <h3>Direction of the country, by region <span class="faint small">(click a bar to drill in)</span></h3>
-          <div class="chart-box"><canvas id="execRegionChart" class="chart-clickable"></canvas></div>
+          <h3>Direction of the country, ranked by nation <span class="faint small">(click a bar to switch focus country)</span></h3>
+          <div class="chart-box tall"><canvas id="execRegionChart" class="chart-clickable"></canvas></div>
         </div>
         <div class="card">
-          <h3>Trust in institutions — national average <span class="faint small">(click a bar to explore)</span></h3>
+          <h3>Trust in institutions — continental average <span class="faint small">(click a bar to explore)</span></h3>
           <div class="chart-box"><canvas id="execTrustChart" class="chart-clickable"></canvas></div>
         </div>
       </div>
@@ -99,8 +105,8 @@
     <section class="view" id="view-country">
       <div class="view-head">
         <div class="view-eyebrow">Country Intelligence Centre</div>
-        <h1 class="view-title">Ghana — Round 10 country profile</h1>
-        <p class="view-desc">Sample composition, fieldwork details, and a narrative synthesis of where Ghana stands across the survey's major themes. In a multi-country deployment, this module becomes a selector across all fielded countries.</p>
+        <h1 class="view-title" id="countryViewTitle">Country profile</h1>
+        <p class="view-desc">Sample composition, fieldwork details, and a narrative synthesis of where the focus country stands — including how it compares to the 39-country continental average on headline indicators. Change the focus country from the sidebar.</p>
       </div>
 
       <div class="grid cols-4" id="countryStatCards"></div>
@@ -114,6 +120,11 @@
           <h3>Sample composition — age</h3>
           <div class="chart-box short"><canvas id="countryAgeChart"></canvas></div>
         </div>
+      </div>
+
+      <div class="card mt-16">
+        <h3>vs. continental average, headline indicators</h3>
+        <div class="chart-box tall"><canvas id="countryVsContinentChart"></canvas></div>
       </div>
 
       <div class="card mt-16">
@@ -131,8 +142,8 @@
     <section class="view" id="view-indicator">
       <div class="view-head">
         <div class="view-eyebrow">The heart of the platform</div>
-        <h1 class="view-title">Indicator Explorer</h1>
-        <p class="view-desc">Choose a theme, then an indicator. Every chart recomputes instantly from the underlying microdata against whatever demographic filters you set below.</p>
+        <h1 class="view-title">Indicator Explorer <span id="indCountryTag" class="badge accent"></span></h1>
+        <p class="view-desc">Choose a theme, then an indicator. Every chart recomputes instantly from the focus country's microdata against whatever demographic filters you set below.</p>
       </div>
 
       <div class="toolbar">
@@ -197,8 +208,8 @@
     <section class="view" id="view-demographic">
       <div class="view-head">
         <div class="view-eyebrow">Cross-cut everything by who's answering</div>
-        <h1 class="view-title">Demographic Intelligence</h1>
-        <p class="view-desc">Build a custom respondent segment using any combination of filters, and see how that segment answers the indicator of your choice compared to the national average.</p>
+        <h1 class="view-title">Demographic Intelligence <span id="demoCountryTag" class="badge accent"></span></h1>
+        <p class="view-desc">Build a custom respondent segment using any combination of filters, and see how that segment answers the indicator of your choice compared to the focus country's average.</p>
       </div>
 
       <div class="grid cols-2">
@@ -237,8 +248,8 @@
     <section class="view" id="view-regional">
       <div class="view-head">
         <div class="view-eyebrow">Drill from nation → region</div>
-        <h1 class="view-title">Regional Intelligence</h1>
-        <p class="view-desc">Ghana's 16 regions, arranged roughly north (top) to south (bottom) / west (left) to east (right). Select an indicator, then click a region to filter every other module to that region alone.</p>
+        <h1 class="view-title">Regional Intelligence <span id="regionCountryTag" class="badge accent"></span></h1>
+        <p class="view-desc">Regions within the focus country. Select an indicator, then click a region to filter every other module to that region alone.</p>
       </div>
 
       <div class="toolbar">
@@ -270,33 +281,48 @@
     <!-- ========================= COMPARE COUNTRIES ======================= -->
     <section class="view" id="view-compare">
       <div class="view-head">
-        <div class="view-eyebrow">Architecture, ready to scale</div>
+        <div class="view-eyebrow">All 39 countries, side by side</div>
         <h1 class="view-title">Compare Countries</h1>
-        <p class="view-desc">This module is built to place any indicator side-by-side across Afrobarometer's 39-country footprint. This prototype ships with verified Ghana Round 10 microdata only — we do not display placeholder numbers for other countries, since that would misrepresent survey findings.</p>
+        <p class="view-desc">Every country Afrobarometer fielded in Round 9, ranked on the indicator of your choice. Bars use each country's own within-country weighting; the dashed line marks the continental average (computed with Afrobarometer's official multi-country weighting factor, which gives each country equal say regardless of population).</p>
       </div>
 
-      <div class="scaffold">
-        <span class="badge accent">Scale-up path</span>
-        <h4>One additional country dataset away</h4>
-        <p>The Indicator Explorer, Regional Intelligence, and Policy Insight engines built for Ghana are country-agnostic — they read from a shared indicator registry and a respondent-level JSON schema. Loading a second country's Round 10 file activates this view automatically, with the same bar charts, radar comparisons, and rankings shown here for Ghana's regions applied across countries instead.</p>
-        <div class="country-chip-row">
-          <span class="country-chip live">Ghana — live</span>
-          <span class="country-chip">Kenya</span>
-          <span class="country-chip">Nigeria</span>
-          <span class="country-chip">South Africa</span>
-          <span class="country-chip">Zambia</span>
-          <span class="country-chip">+ 34 more fielded countries</span>
+      <div class="toolbar">
+        <div class="select-field">
+          <label>Theme</label>
+          <select id="compareThemeSelect"></select>
+        </div>
+        <div class="select-field" style="min-width:320px;">
+          <label>Indicator</label>
+          <select id="compareIndicatorSelect"></select>
+        </div>
+        <div class="spacer"></div>
+        <div class="export-bar">
+          <button class="btn" id="btnCompareExportCsv">⬇ CSV</button>
         </div>
       </div>
 
+      <div class="card">
+        <div class="card-title-row">
+          <div>
+            <div class="badge accent" id="compareThemeBadge">Theme</div>
+            <div style="font-family:var(--font-display);font-size:19px;font-weight:600;margin-top:6px;" id="compareQTitle">—</div>
+          </div>
+          <div class="kpi" style="min-width:160px;">
+            <div class="kpi-label">Continental average</div>
+            <div class="kpi-value" id="compareContinentalVal">—</div>
+          </div>
+        </div>
+        <p class="small muted" id="compareQWording"></p>
+      </div>
+
       <div class="card mt-16">
-        <h3>What this view will show, once populated</h3>
-        <ul style="font-size:13.5px;color:var(--ink-soft);line-height:1.8;padding-left:20px;margin:0;">
-          <li>Grouped bar charts comparing up to 5 countries on any indicator in the registry</li>
-          <li>Radar charts for multi-dimensional profiles (e.g. trust in six institutions at once)</li>
-          <li>A ranked table across all fielded countries, sortable by any indicator</li>
-          <li>Trend lines where a country has multiple rounds merged</li>
-        </ul>
+        <h3>Ranked across 39 countries <span class="faint small">(click a bar to set it as focus country)</span></h3>
+        <div class="chart-box" style="height:900px;"><canvas id="compareRankChart" class="chart-clickable"></canvas></div>
+      </div>
+
+      <div class="card mt-16">
+        <h3>Data table</h3>
+        <div id="compareTable"></div>
       </div>
     </section>
 
@@ -379,8 +405,12 @@
       <div class="card mt-16">
         <h3>Non-response &amp; weighting conventions</h3>
         <p class="small muted" style="line-height:1.7;">
-          All percentages shown are computed on valid, substantive responses only, using the <code>withinwt_hh</code> weight that
-          Afrobarometer supplies to correct for individual selection probabilities (region, gender, urban/rural distribution, household and enumeration-area size).
+          All percentages shown are computed on valid, substantive responses only. Single-country views use <code>withinwt_hh</code>
+          (Afrobarometer's within-country weight, correcting for individual selection probability, region, urban/rural
+          distribution, and household/enumeration-area size). Cross-country and continental figures use
+          <code>Combinwt_new_hh</code>, Afrobarometer's official multi-country weighting factor, which gives each of the 39
+          countries equal weight in the continental average regardless of population size — matching Afrobarometer's own
+          published cross-country reporting convention.
           "Don't know", "Refused", and "Not applicable" responses are excluded from percentage bases and are never silently
           recoded as a substantive answer.
         </p>
@@ -396,9 +426,11 @@
 
       <div class="footer-note">
         Afrobarometer data are protected by copyright. This prototype is a technical demonstration built for a proposal to
-        Afrobarometer and is not an official Afrobarometer product. All statistics derive from the Ghana Round 10 (2024)
-        dataset and codebook as released by Afrobarometer; value labels and question wording were cross-checked against
-        <span class="mono">AB_R10.Codebook_Ghana_30June25.pdf</span> (Afrobarometer, prepared by Alfred Torsu, June 2025).
+        Afrobarometer and is not an official Afrobarometer product. All statistics derive from the Afrobarometer Round 9
+        Merged Data (39 countries) file as released by Afrobarometer
+        (<span class="mono">R9_Merge_39ctry_20Nov23_final__release_Updated_4Jun25-3.sav</span>); value labels and question
+        wording were cross-checked against the official Round 9 merge codebook and pulled programmatically from the
+        dataset's own embedded metadata to avoid transcription error.
       </div>
     </section>
 
@@ -413,7 +445,7 @@
   <div class="assist-head">
     <div>
       <div class="ah-title">Ask the data</div>
-      <div class="ah-sub">Fixed-rule query engine · Ghana R10 microdata</div>
+      <div class="ah-sub">Fixed-rule query engine · 39-country R9 microdata</div>
     </div>
     <button id="assistClose" aria-label="Close">✕</button>
   </div>
