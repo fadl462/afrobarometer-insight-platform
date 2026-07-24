@@ -19,7 +19,7 @@
       <img src="assets/afrobarometer-logo.png" alt="Afrobarometer">
       <div>
         <div class="brand-name">Insight Platform</div>
-        <div class="brand-tag">Prototype · 39-country R9</div>
+        <div class="brand-tag">39-Country · Round 9</div>
       </div>
     </div>
 
@@ -54,7 +54,8 @@
         <span>Appearance</span>
         <button id="themeBtn" type="button">Dark</button>
       </div>
-      <div class="mini-meta" id="sidebarMeta">Loading survey metadata…</div>
+      <div class="mini-meta" id="sidebarMeta">n=53,444 · 39 countries · Round 9</div>
+      <div class="sidebar-tagline">“Let the people have a say.”</div>
     </div>
   </aside>
 
@@ -63,6 +64,10 @@
     <div class="topbar">
       <button class="hamburger" id="hamburger" aria-label="Toggle navigation">☰</button>
       <div class="topbar-title" id="topbarTitle">Executive Briefing</div>
+      <div class="global-search-wrap">
+        <input type="text" id="globalSearchInput" class="global-search-input" placeholder="Search indicators, e.g. “corruption”, “internet access”…" autocomplete="off">
+        <div class="global-search-results" id="globalSearchResults"></div>
+      </div>
       <div class="topbar-sub" id="topbarSub">Afrobarometer · Round 9 · 39 countries · 2021–2023</div>
     </div>
 
@@ -131,6 +136,9 @@
             </div>
           </div>
           <div class="small faint mt-8"><span class="swatch-muted" style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--paper-deep);margin-right:5px;"></span>Not surveyed in Round 9</div>
+          <div class="flex gap-8 mt-12">
+            <button class="btn" id="btnAfricaExportPng">⬇ Map as PNG</button>
+          </div>
           <div class="africa-attribution">Map: Al MacDonald (original), Fritz Lekschas (editor) — CC BY-SA 3.0</div>
         </div>
         <div class="card">
@@ -338,6 +346,7 @@
         </div>
         <div class="spacer"></div>
         <div class="export-bar">
+          <button class="btn" id="btnCompareExportPng">⬇ PNG</button>
           <button class="btn" id="btnCompareExportCsv">⬇ CSV</button>
         </div>
       </div>
@@ -466,8 +475,9 @@
       </div>
 
       <div class="footer-note">
-        Afrobarometer data are protected by copyright. This prototype is a technical demonstration built for a proposal to
-        Afrobarometer and is not an official Afrobarometer product. All statistics derive from the Afrobarometer Round 9
+        Afrobarometer data are protected by copyright. This platform was developed independently using Afrobarometer's
+        publicly released Round 9 Merged Data, in connection with a proposal for Afrobarometer's 2026 Flagship Report
+        interactive dashboard. All statistics derive from the Afrobarometer Round 9
         Merged Data (39 countries) file as released by Afrobarometer
         (<span class="mono">R9_Merge_39ctry_20Nov23_final__release_Updated_4Jun25-3.sav</span>); value labels and question
         wording were cross-checked against the official Round 9 merge codebook and pulled programmatically from the

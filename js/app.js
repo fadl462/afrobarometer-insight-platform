@@ -49,6 +49,7 @@ async function boot() {
   populateGlobalCountrySelect();
   initNav();
   initTheme();
+  initGlobalSearch();
   renderExecutive();
   initCompareCountries();
   await initAfricaOverview();
@@ -427,6 +428,7 @@ async function initAfricaOverview() {
   themeSel.value = "Democracy";
   themeSel.addEventListener("change", populateAfricaIndicatorSelect);
   document.getElementById("africaIndicatorSelect").addEventListener("change", renderAfricaMap);
+  document.getElementById("btnAfricaExportPng").addEventListener("click", () => exportSvgAsPng("africaMapWrap", "africa_map.png"));
 
   const tooltip = document.createElement("div");
   tooltip.className = "map-tooltip";
@@ -501,6 +503,50 @@ function renderAfricaMap() {
 }
 
 // ---------------------------------------------------------------------------
+// GLOBAL SEARCH (topbar) — finds indicators by keyword, jumps to Indicator Explorer
+// ---------------------------------------------------------------------------
+function initGlobalSearch() {
+  const input = document.getElementById("globalSearchInput");
+  const results = document.getElementById("globalSearchResults");
+
+  function runSearch(q) {
+    const query = q.trim().toLowerCase();
+    if (!query) { results.classList.remove("open"); results.innerHTML = ""; return; }
+    const tokens = query.split(/\s+/).filter(Boolean);
+    const scored = Object.entries(APP.indicators).map(([key, meta]) => {
+      const hay = (meta.theme + " " + meta.label + " " + meta.question).toLowerCase();
+      const score = tokens.reduce((s, t) => s + (hay.includes(t) ? 1 : 0), 0);
+      return { key, meta, score };
+    }).filter(r => r.score > 0).sort((a, b) => b.score - a.score).slice(0, 8);
+
+    results.innerHTML = scored.length
+      ? scored.map(r => `<div class="gsr-item" data-key="${r.key}"><div class="gsr-theme">${r.meta.theme}</div><div class="gsr-label">${r.meta.label}</div></div>`).join("")
+      : `<div class="gsr-empty">No indicators match “${q}”.</div>`;
+    results.classList.add("open");
+    results.querySelectorAll(".gsr-item").forEach(el => {
+      el.addEventListener("click", () => {
+        goToIndicatorView(el.dataset.key);
+        input.value = "";
+        results.classList.remove("open");
+      });
+    });
+  }
+
+  input.addEventListener("input", () => runSearch(input.value));
+  input.addEventListener("focus", () => { if (input.value.trim()) results.classList.add("open"); });
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest(".global-search-wrap")) results.classList.remove("open");
+  });
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") { input.blur(); results.classList.remove("open"); }
+    if (e.key === "Enter") {
+      const first = results.querySelector(".gsr-item");
+      if (first) { goToIndicatorView(first.dataset.key); input.value = ""; results.classList.remove("open"); }
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
 // COUNTRY INTELLIGENCE CENTRE (focus country vs continental average)
 // ---------------------------------------------------------------------------
 function renderCountry() {
@@ -554,7 +600,7 @@ function renderCountry() {
     <div class="insight">Support for democracy stands at <b>${fmtPct(weightedFavorable(APP.records, "Q23").pct)}</b>, ranking <b>#${demRank.rank} of ${demRank.total}</b> (continental average: ${fmtPct(APP.aggregates["Q23"].__continental__.pct)}).</div>`;
 
   document.getElementById("countryMethodBox").innerHTML = `
-    <dl style="display:grid;grid-template-columns:150px 1fr;gap:8px 12px;">
+    <dl class="dl-grid">
       <dt>Universe</dt><dd>Citizens of ${APP.countryName}, 18 years and older</dd>
       <dt>Design</dt><dd>Nationally representative, random, clustered, stratified, multi-stage area probability sample</dd>
       <dt>Sample</dt><dd>n = ${payload.n} across ${payload.regions.length} regions</dd>
@@ -712,7 +758,7 @@ function renderIndicatorExplorer() {
   }
 
   document.getElementById("indMetaBox").innerHTML = `
-    <dl style="display:grid;grid-template-columns:150px 1fr;gap:8px 12px;">
+    <dl class="dl-grid">
       <dt>Variable</dt><dd class="mono">${varKey}</dd>
       <dt>Theme</dt><dd>${meta.theme}</dd>
       <dt>Country</dt><dd>${APP.countryName}</dd>
@@ -730,6 +776,34 @@ function flashBtn(id, text) {
 function exportChartPng(canvasId, name) {
   const chart = APP.charts[canvasId]; if (!chart) return;
   const a = document.createElement("a"); a.href = chart.toBase64Image(); a.download = `${name}.png`; a.click();
+}
+function exportSvgAsPng(containerId, filename) {
+  const wrap = document.getElementById(containerId);
+  const svgEl = wrap.querySelector("svg");
+  if (!svgEl) return;
+  const rect = wrap.getBoundingClientRect();
+  const width = Math.round(rect.width) || 640, height = Math.round(rect.height) || 480;
+  const clone = svgEl.cloneNode(true);
+  clone.setAttribute("width", width); clone.setAttribute("height", height);
+  const svgData = new XMLSerializer().serializeToString(clone);
+  const svgBlob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
+  const url = URL.createObjectURL(svgBlob);
+  const img = new Image();
+  img.onload = () => {
+    const scale = 2;
+    const canvas = document.createElement("canvas");
+    canvas.width = width * scale; canvas.height = height * scale;
+    const ctx = canvas.getContext("2d");
+    ctx.scale(scale, scale);
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--paper").trim() || "#ffffff";
+    ctx.fillRect(0, 0, width, height);
+    ctx.drawImage(img, 0, 0, width, height);
+    URL.revokeObjectURL(url);
+    canvas.toBlob(blob => {
+      const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = filename; a.click();
+    });
+  };
+  img.src = url;
 }
 function exportIndicatorCsv() {
   const varKey = document.getElementById("indicatorSelect").value;
@@ -869,6 +943,7 @@ function initCompareCountries() {
   themeSel.addEventListener("change", populateCompareIndicatorSelect);
   document.getElementById("compareIndicatorSelect").addEventListener("change", renderCompare);
   document.getElementById("btnCompareExportCsv").addEventListener("click", exportCompareCsv);
+  document.getElementById("btnCompareExportPng").addEventListener("click", () => exportChartPng("compareRankChart", "country_comparison"));
   populateCompareIndicatorSelect();
 }
 
@@ -976,7 +1051,7 @@ function renderPolicy() {
 function renderMethodology() {
   const m = APP.meta;
   document.getElementById("methodSamplingBox").innerHTML = `
-    <dl style="display:grid;grid-template-columns:150px 1fr;gap:8px 12px;">
+    <dl class="dl-grid">
       <dt>Dataset</dt><dd>${m.dataset}</dd>
       <dt>Round</dt><dd>${m.round}</dd>
       <dt>Countries</dt><dd>${m.countries.length}</dd>

@@ -1,9 +1,9 @@
 # Afrobarometer Insight Platform — 39-Country Round 9 Build
 
 An interactive evidence intelligence platform built on Afrobarometer's real
-**Round 9 Merged Data** — 53,444 interviews across all 39 fielded countries —
-prepared as a technical proposal prototype, not an official Afrobarometer
-product.
+**Round 9 Merged Data** — 53,444 interviews across all 39 fielded countries.
+Developed independently in connection with a proposal for Afrobarometer's
+2026 Flagship Report interactive dashboard.
 
 **Live demo:** https://fadl462.github.io/afrobarometer-insight-platform/
 
@@ -132,10 +132,9 @@ cross-country reporting convention).
 
 > Afrobarometer Data, Merged Round 9 (39 countries), 2021-2023, available at http://www.afrobarometer.org.
 
-Afrobarometer data are protected by copyright; this repository is a
-technical prototype prepared for a proposal to Afrobarometer and is not
-redistributing the raw survey file — only the derived, respondent-level
-JSON needed to power this specific demo.
+Afrobarometer data are protected by copyright; this repository does not
+redistribute the raw survey file — only the derived, respondent-level
+JSON needed to power this platform.
 
 ## Stack
 
