@@ -15,7 +15,7 @@
 
 const APP = {
   meta: null, indicators: null, aggregates: null, continental: null,
-  records: null,           // decoded microdata for the current focus country
+  records: null,           // decoded microdata for the current selected country
   countrySlug: null, countryName: null, countryPayload: null,
   charts: {}, demoFilters: {}, regionSelected: null,
   _countryDependentInited: false,
@@ -65,6 +65,7 @@ async function boot() {
   initAssistant();
   initQACentre();
   APP._countryDependentInited = true;
+  switchView("executive"); // re-sync content/breadcrumb to the default view after all init-time renders ran
 }
 
 function populateGlobalCountrySelect() {
@@ -72,7 +73,19 @@ function populateGlobalCountrySelect() {
   const sorted = [...APP.meta.countries].sort((a, b) => a.name.localeCompare(b.name));
   sel.innerHTML = sorted.map(c => `<option value="${c.slug}">${c.name} (n=${c.n})</option>`).join("");
   sel.value = DEFAULT_COUNTRY_SLUG;
-  sel.addEventListener("change", () => setFocusCountry(sel.value));
+  sel.addEventListener("change", () => refocusCountry(sel.value));
+}
+
+function getCurrentViewKey() {
+  const activeBtn = document.querySelector(".nav-item.active");
+  return activeBtn ? activeBtn.dataset.view : "executive";
+}
+/** Always use this (not setFocusCountry directly) from click handlers: awaits the country load,
+    then re-syncs whichever view should be visible, so background renders can't win the breadcrumb race. */
+async function refocusCountry(slug, targetView) {
+  if (!slug) return;
+  await setFocusCountry(slug);
+  switchView(targetView || getCurrentViewKey());
 }
 
 async function setFocusCountry(slug) {
@@ -144,8 +157,27 @@ const VIEW_TITLES = {
   executive: "Executive Briefing", africa: "Africa Overview", country: "Country Intelligence Centre",
   indicator: "Indicator Explorer", demographic: "Demographic Intelligence",
   regional: "Regional Intelligence", compare: "Compare Countries",
-  policy: "Policy Insight Centre", qa: "Ask the Data", methodology: "Methodology & Downloads",
+  policy: "Evidence Intelligence", qa: "Ask the Data", methodology: "Methodology & Downloads",
 };
+
+function renderBreadcrumb(segments) {
+  const bar = document.getElementById("breadcrumbBar");
+  if (!bar) return;
+  bar.innerHTML = segments.map((s, i) => {
+    const isLast = i === segments.length - 1;
+    return `<span class="bc-seg ${isLast ? "current" : ""}" data-bc-idx="${i}">${s.label}</span>` + (isLast ? "" : `<span class="bc-sep">›</span>`);
+  }).join("");
+  segments.forEach((s, i) => {
+    if (s.onClick) bar.querySelector(`[data-bc-idx="${i}"]`).addEventListener("click", s.onClick);
+  });
+}
+const bcAfrica = () => ({ label: "Africa", onClick: () => switchView("executive") });
+const bcCountry = () => ({ label: APP.countryName, onClick: () => switchView("country") });
+
+function getCurrentViewKey() {
+  const activeSection = document.querySelector(".view.active");
+  return activeSection ? activeSection.id.replace("view-", "") : "executive";
+}
 
 function switchView(viewKey) {
   document.querySelectorAll(".nav-item").forEach(b => b.classList.toggle("active", b.dataset.view === viewKey));
@@ -154,7 +186,21 @@ function switchView(viewKey) {
   document.getElementById("topbarTitle").textContent = VIEW_TITLES[viewKey];
   document.getElementById("sidebar").classList.remove("open");
   window.scrollTo({ top: 0 });
+  if (VIEW_RENDERERS[viewKey]) VIEW_RENDERERS[viewKey]();
 }
+
+const VIEW_RENDERERS = {
+  executive: () => renderExecutive(),
+  africa: () => renderAfricaMap(),
+  country: () => renderCountry(),
+  indicator: () => renderIndicatorExplorer(),
+  demographic: () => renderDemographic(),
+  regional: () => renderRegional(),
+  compare: () => renderCompare(),
+  policy: () => renderPolicy(),
+  qa: () => renderBreadcrumb([bcAfrica(), { label: "Ask the Data" }]),
+  methodology: () => renderBreadcrumb([bcAfrica(), { label: "Methodology & Downloads" }]),
+};
 
 function initNav() {
   document.querySelectorAll(".nav-item").forEach(btn => {
@@ -165,7 +211,7 @@ function initNav() {
   });
 }
 
-/** Jump to Indicator Explorer with a specific indicator (and optional filters) preselected, in the current focus country. */
+/** Jump to Indicator Explorer with a specific indicator (and optional filters) preselected, in the current selected country. */
 function goToIndicatorView(varKey, filters) {
   const meta = APP.indicators[varKey];
   document.getElementById("themeSelect").value = meta.theme;
@@ -211,7 +257,7 @@ function updateThemeBtn(mode) {
 }
 
 // ---------------------------------------------------------------------------
-// Core stats engine (operates on APP.records — the current focus country)
+// Core stats engine (operates on APP.records — the current selected country)
 // ---------------------------------------------------------------------------
 function applyFilters(records, filters) {
   const active = Object.entries(filters || {}).filter(([, v]) => v !== null && v !== undefined && v !== "" && !(Array.isArray(v) && v.length === 0));
@@ -392,7 +438,7 @@ function renderExecutive() {
   const shown = entries.slice(0, 7).concat(entries.slice(-6));
   makeChart("execRegionChart", barConfig(shown.map(([k]) => k), shown.map(([, v]) => v.pct), {
     horizontal: true, colors: PALETTE[0], thick: 13,
-    onClick: (i) => { const slug = countrySlugFor(shown[i][0]); if (slug) { setFocusCountry(slug); switchView("country"); } },
+    onClick: (i) => { const slug = countrySlugFor(shown[i][0]); refocusCountry(slug, "country"); },
   }));
 
   // Trust in institutions, continental average
@@ -400,6 +446,8 @@ function renderExecutive() {
   const trustLabels = trustVars.map(v => APP.indicators[v].label.replace("Trust: ", ""));
   const trustVals = trustVars.map(v => (APP.aggregates[v] && APP.aggregates[v].__continental__.pct));
   makeChart("execTrustChart", barConfig(trustLabels, trustVals, { horizontal: true, colors: PALETTE[1], thick: 16, onClick: (i) => goToIndicatorView(trustVars[i]) }));
+
+  renderBreadcrumb([{ label: "Africa", current: true }]);
 }
 
 // ---------------------------------------------------------------------------
@@ -480,10 +528,7 @@ function renderAfricaMap() {
       tooltip.innerHTML = `<b>${name}</b><br>${v.pct}% favourable (n=${v.n})`;
     };
     path.onmouseleave = () => { tooltip.style.display = "none"; };
-    path.onclick = () => {
-      const slug = countrySlugFor(name);
-      if (slug) setFocusCountry(slug);
-    };
+    path.onclick = () => refocusCountry(countrySlugFor(name), "africa");
   });
 
   const ranked = entries.sort((a, b) => b[1].pct - a[1].pct);
@@ -495,11 +540,10 @@ function renderAfricaMap() {
       <div class="rank-val">${v.pct}%</div>
     </div>`).join("");
   document.querySelectorAll("#africaRankList [data-country-row]").forEach(el => {
-    el.addEventListener("click", () => {
-      const slug = countrySlugFor(el.dataset.countryRow);
-      if (slug) setFocusCountry(slug);
-    });
+    el.addEventListener("click", () => refocusCountry(countrySlugFor(el.dataset.countryRow), "africa"));
   });
+
+  renderBreadcrumb([bcAfrica(), { label: meta.theme }, { label: meta.label }]);
 }
 
 // ---------------------------------------------------------------------------
@@ -513,22 +557,34 @@ function initGlobalSearch() {
     const query = q.trim().toLowerCase();
     if (!query) { results.classList.remove("open"); results.innerHTML = ""; return; }
     const tokens = query.split(/\s+/).filter(Boolean);
-    const scored = Object.entries(APP.indicators).map(([key, meta]) => {
+
+    const countryMatches = APP.meta.countries
+      .filter(c => tokens.every(t => c.name.toLowerCase().includes(t)))
+      .slice(0, 5);
+
+    const indicatorMatches = Object.entries(APP.indicators).map(([key, meta]) => {
       const hay = (meta.theme + " " + meta.label + " " + meta.question).toLowerCase();
       const score = tokens.reduce((s, t) => s + (hay.includes(t) ? 1 : 0), 0);
       return { key, meta, score };
-    }).filter(r => r.score > 0).sort((a, b) => b.score - a.score).slice(0, 8);
+    }).filter(r => r.score > 0).sort((a, b) => b.score - a.score).slice(0, 6);
 
-    results.innerHTML = scored.length
-      ? scored.map(r => `<div class="gsr-item" data-key="${r.key}"><div class="gsr-theme">${r.meta.theme}</div><div class="gsr-label">${r.meta.label}</div></div>`).join("")
-      : `<div class="gsr-empty">No indicators match “${q}”.</div>`;
+    let html = "";
+    if (countryMatches.length) {
+      html += `<div class="gsr-group-label">Countries</div>` + countryMatches.map(c => `
+        <div class="gsr-item" data-country-slug="${c.slug}"><div class="gsr-theme">Country</div><div class="gsr-label">${c.name} <span class="faint">(n=${c.n})</span></div></div>`).join("");
+    }
+    if (indicatorMatches.length) {
+      html += `<div class="gsr-group-label">Indicators &amp; questions</div>` + indicatorMatches.map(r => `
+        <div class="gsr-item" data-key="${r.key}"><div class="gsr-theme">${r.meta.theme}</div><div class="gsr-label">${r.meta.label}</div></div>`).join("");
+    }
+    results.innerHTML = html || `<div class="gsr-empty">No matches for “${q}”.</div>`;
     results.classList.add("open");
-    results.querySelectorAll(".gsr-item").forEach(el => {
-      el.addEventListener("click", () => {
-        goToIndicatorView(el.dataset.key);
-        input.value = "";
-        results.classList.remove("open");
-      });
+
+    results.querySelectorAll(".gsr-item[data-key]").forEach(el => {
+      el.addEventListener("click", () => { goToIndicatorView(el.dataset.key); input.value = ""; results.classList.remove("open"); });
+    });
+    results.querySelectorAll(".gsr-item[data-country-slug]").forEach(el => {
+      el.addEventListener("click", () => { refocusCountry(el.dataset.countrySlug, "country"); input.value = ""; results.classList.remove("open"); });
     });
   }
 
@@ -541,13 +597,13 @@ function initGlobalSearch() {
     if (e.key === "Escape") { input.blur(); results.classList.remove("open"); }
     if (e.key === "Enter") {
       const first = results.querySelector(".gsr-item");
-      if (first) { goToIndicatorView(first.dataset.key); input.value = ""; results.classList.remove("open"); }
+      if (first) first.click();
     }
   });
 }
 
 // ---------------------------------------------------------------------------
-// COUNTRY INTELLIGENCE CENTRE (focus country vs continental average)
+// COUNTRY INTELLIGENCE CENTRE (selected country vs continental average)
 // ---------------------------------------------------------------------------
 function renderCountry() {
   document.getElementById("countryViewTitle").textContent = `${APP.countryName} — Round 9 country profile`;
@@ -607,6 +663,8 @@ function renderCountry() {
       <dt>Weighting</dt><dd>withinwt_hh — corrects for individual selection probability, region, urban/rural distribution, household &amp; EA size</dd>
       <dt>Dataset</dt><dd>Afrobarometer Round 9 Merged Data (39 countries)</dd>
     </dl>`;
+
+  renderBreadcrumb([bcAfrica(), { label: APP.countryName, current: true }]);
 }
 
 function rankCountry(varKey) {
@@ -668,7 +726,7 @@ function populateIndicatorSelect() {
   const opts = Object.entries(APP.indicators).filter(([, v]) => v.theme === theme);
   sel.innerHTML = opts.map(([k, v]) => `<option value="${k}">${v.label}</option>`).join("");
   if (opts.some(([k]) => k === prevVal)) sel.value = prevVal;
-  // refresh demographic filter option lists too, since the focus country may have changed
+  // refresh demographic filter option lists too, since the selected country may have changed
   const filterBar = document.getElementById("indFilterBar");
   if (filterBar) {
     filterBar.innerHTML = filterSelectHTML("ind", ["region", "urbrur", "gender", "age_group", "education"]);
@@ -766,6 +824,8 @@ function renderIndicatorExplorer() {
       <dt>Base</dt><dd>n = ${dist.n} valid responses${Object.keys(filters).length ? " within current filter" : ""}</dd>
       <dt>Weighting</dt><dd>withinwt_hh</dd>
     </dl>`;
+
+  renderBreadcrumb([bcAfrica(), bcCountry(), { label: meta.theme }, { label: meta.label, current: true }]);
 }
 
 function currentCitation() { return APP.meta.citation; }
@@ -838,7 +898,7 @@ function buildDemoFilterBar() {
 }
 
 function renderDemographic() {
-  buildDemoFilterBar(); // refresh option lists in case focus country changed
+  buildDemoFilterBar(); // refresh option lists in case selected country changed
   const filters = {};
   document.querySelectorAll(".demoFilterSelect").forEach(s => { if (s.value) filters[s.dataset.field] = s.value; });
   const segment = applyFilters(APP.records, filters);
@@ -863,10 +923,12 @@ function renderDemographic() {
     if (APP.charts["demoCompareChart"]) APP.charts["demoCompareChart"].destroy();
     makeChart("demoCompareChart", { type: "bar", data: { labels: [], datasets: [] }, options: { plugins: { legend: { display: false } } } });
   }
+
+  renderBreadcrumb([bcAfrica(), bcCountry(), { label: "Demographic Intelligence" }, { label: meta.label, current: true }]);
 }
 
 // ---------------------------------------------------------------------------
-// REGIONAL INTELLIGENCE (regions of the current focus country; layout is
+// REGIONAL INTELLIGENCE (regions of the current selected country; layout is
 // auto-generated, not hand-placed, since region sets differ per country)
 // ---------------------------------------------------------------------------
 function initRegionalIntelligence() {
@@ -931,6 +993,10 @@ function renderRegional() {
   } else {
     detailCard.style.display = "none";
   }
+
+  const regSegs = [bcAfrica(), bcCountry(), { label: "Regional Intelligence", current: !APP.regionSelected }];
+  if (APP.regionSelected) regSegs.push({ label: APP.regionSelected, current: true });
+  renderBreadcrumb(regSegs);
 }
 
 // ---------------------------------------------------------------------------
@@ -972,12 +1038,14 @@ function renderCompare() {
   const entries = Object.entries(data).filter(([k, v]) => k !== "__continental__" && v.pct !== null).sort((a, b) => b[1].pct - a[1].pct);
   makeChart("compareRankChart", barConfig(entries.map(([k]) => k), entries.map(([, v]) => v.pct), {
     horizontal: true, colors: PALETTE[0], thick: 14, refLine: cont.pct,
-    onClick: (i) => { const slug = countrySlugFor(entries[i][0]); if (slug) setFocusCountry(slug); },
+    onClick: (i) => { const slug = countrySlugFor(entries[i][0]); refocusCountry(slug, "compare"); },
   }));
 
   renderSortableTable("compareTable",
     [{ key: "country", label: "Country" }, { key: "pct", label: "% favourable", numeric: true, pct: true }, { key: "n", label: "n", numeric: true }],
     entries.map(([k, v]) => ({ country: k, pct: v.pct, n: v.n })), "pct");
+
+  renderBreadcrumb([bcAfrica(), { label: meta.theme }, { label: meta.label, current: true }]);
 }
 
 function exportCompareCsv() {
@@ -991,7 +1059,7 @@ function exportCompareCsv() {
 }
 
 // ---------------------------------------------------------------------------
-// POLICY INSIGHT CENTRE (rule-based, scoped to the focus country)
+// POLICY INSIGHT CENTRE (rule-based, scoped to the selected country)
 // ---------------------------------------------------------------------------
 const POLICY_SPLIT_FIELDS = [
   { key: "gender", labelFn: () => `between men and women` },
@@ -1043,6 +1111,8 @@ function renderPolicy() {
   document.querySelectorAll('#policyFindings [data-policy-var]').forEach(el => {
     el.addEventListener("click", () => goToIndicatorView(el.dataset.policyVar));
   });
+
+  renderBreadcrumb([bcAfrica(), bcCountry(), { label: "Evidence Intelligence", current: true }]);
 }
 
 // ---------------------------------------------------------------------------
@@ -1102,7 +1172,7 @@ function renderAnswerNode(ans) {
     ${ans.chart ? `<div class="qa-chart-box"><canvas id="${uid}"></canvas></div>` : ""}
     <div class="qa-actions">
       ${ans.varKey ? `<button class="btn" data-open-var="${ans.varKey}">Open in Indicator Explorer →</button>` : ""}
-      ${ans.switchCountry ? `<button class="btn" data-switch-country="${ans.switchCountry}">Switch focus country to ${ans.switchCountry} →</button>` : ""}
+      ${ans.switchCountry ? `<button class="btn" data-switch-country="${ans.switchCountry}">Switch selected country to ${ans.switchCountry} →</button>` : ""}
     </div>
   `;
   if (ans.chart) {
@@ -1114,7 +1184,7 @@ function renderAnswerNode(ans) {
   const btn = wrap.querySelector("[data-open-var]");
   if (btn) btn.addEventListener("click", () => { goToIndicatorView(btn.dataset.openVar, ans.filters); document.getElementById("assistPanel").classList.remove("open"); });
   const swBtn = wrap.querySelector("[data-switch-country]");
-  if (swBtn) swBtn.addEventListener("click", () => { const slug = countrySlugFor(swBtn.dataset.switchCountry); if (slug) setFocusCountry(slug); });
+  if (swBtn) swBtn.addEventListener("click", () => refocusCountry(countrySlugFor(swBtn.dataset.switchCountry), "country"));
   return wrap;
 }
 
@@ -1137,7 +1207,7 @@ function initAssistant() {
   const body = document.getElementById("assistBody");
   const greet = document.createElement("div");
   greet.className = "assist-msg bot";
-  greet.innerHTML = `Ask me anything about the Afrobarometer Round 9 survey — a topic, a country, a region within ${APP.countryName} (your current focus country), or a demographic group. I run fixed calculations over the real microdata and precomputed country aggregates, so every answer is traceable.`;
+  greet.innerHTML = `Ask me anything about the Afrobarometer Round 9 survey — a topic, a country, a region within ${APP.countryName} (your currently selected country), or a demographic group. I run fixed calculations over the real microdata and precomputed country aggregates, so every answer is traceable.`;
   body.appendChild(greet);
 
   document.getElementById("assistSend").addEventListener("click", sendFromInput);

@@ -24,7 +24,7 @@
     </div>
 
     <div class="select-field" style="margin-top:2px;">
-      <label>Focus country</label>
+      <label>Selected country</label>
       <select id="globalCountrySelect"></select>
     </div>
     <div class="mini-meta" id="countryLoadStatus" style="margin-top:-8px;"></div>
@@ -42,7 +42,7 @@
       <button class="nav-item" data-view="compare"><span class="dot"></span>Compare Countries</button>
 
       <div class="nav-group-label">Synthesize</div>
-      <button class="nav-item" data-view="policy"><span class="dot"></span>Policy Insight Centre</button>
+      <button class="nav-item" data-view="policy"><span class="dot"></span>Evidence Intelligence</button>
       <button class="nav-item" data-view="qa"><span class="dot"></span>Ask the Data</button>
 
       <div class="nav-group-label">Reference</div>
@@ -65,18 +65,20 @@
       <button class="hamburger" id="hamburger" aria-label="Toggle navigation">☰</button>
       <div class="topbar-title" id="topbarTitle">Executive Briefing</div>
       <div class="global-search-wrap">
-        <input type="text" id="globalSearchInput" class="global-search-input" placeholder="Search indicators, e.g. “corruption”, “internet access”…" autocomplete="off">
+        <input type="text" id="globalSearchInput" class="global-search-input" placeholder="Search indicators, countries, or questions…" autocomplete="off">
         <div class="global-search-results" id="globalSearchResults"></div>
       </div>
       <div class="topbar-sub" id="topbarSub">Afrobarometer · Round 9 · 39 countries · 2021–2023</div>
     </div>
 
+    <div class="breadcrumb-bar" id="breadcrumbBar"></div>
+
     <!-- ======================= EXECUTIVE BRIEFING ======================= -->
     <section class="view active" id="view-executive">
       <div class="view-head">
         <div class="view-eyebrow">Landing · Pan-African overview · updated live from microdata</div>
-        <h1 class="view-title">What 39 African countries told Afrobarometer, and what deserves attention</h1>
-        <p class="view-desc">This is not a static report — every figure below is computed on request from the Round 9 merged respondent-level dataset (53,444 interviews across 39 countries), weighted so each country contributes equally to the continental figure. Pick a <b>focus country</b> in the sidebar to drill into Indicator Explorer, Regional Intelligence, and the rest in single-country depth.</p>
+        <h1 class="view-title">Africa's Voice at a Glance</h1>
+        <p class="view-desc">This is not a static report — every figure below is computed on request from the Round 9 merged respondent-level dataset (53,444 interviews across 39 countries), weighted so each country contributes equally to the continental figure. Pick a <b>selected country</b> in the sidebar to drill into Indicator Explorer, Regional Intelligence, and the rest in single-country depth.</p>
       </div>
 
       <div class="grid cols-4" id="execKpis"></div>
@@ -97,7 +99,7 @@
 
       <div class="grid cols-2 mt-16">
         <div class="card">
-          <h3>Direction of the country, ranked by nation <span class="faint small">(click a bar to switch focus country)</span></h3>
+          <h3>Direction of the country, ranked by nation <span class="faint small">(click a bar to switch selected country)</span></h3>
           <div class="chart-box tall"><canvas id="execRegionChart" class="chart-clickable"></canvas></div>
         </div>
         <div class="card">
@@ -112,7 +114,7 @@
       <div class="view-head">
         <div class="view-eyebrow">The continent, at a glance</div>
         <h1 class="view-title">Africa Overview</h1>
-        <p class="view-desc">Every country Afrobarometer surveys, shaded by the indicator of your choice. Grey countries were not part of Afrobarometer Round 9. Click any surveyed country to make it your focus country for deep-dive exploration.</p>
+        <p class="view-desc">Every country Afrobarometer surveys, shaded by the indicator of your choice. Grey countries were not part of Afrobarometer Round 9. Click any surveyed country to make it your selected country for deep-dive exploration.</p>
       </div>
 
       <div class="toolbar">
@@ -155,7 +157,7 @@
       <div class="view-head">
         <div class="view-eyebrow">Country Intelligence Centre</div>
         <h1 class="view-title" id="countryViewTitle">Country profile</h1>
-        <p class="view-desc">Sample composition, fieldwork details, and a narrative synthesis of where the focus country stands — including how it compares to the 39-country continental average on headline indicators. Change the focus country from the sidebar.</p>
+        <p class="view-desc">Sample composition, fieldwork details, and a narrative synthesis of where the selected country stands — including how it compares to the 39-country continental average on headline indicators. Change the selected country from the sidebar.</p>
       </div>
 
       <div class="grid cols-4" id="countryStatCards"></div>
@@ -192,7 +194,7 @@
       <div class="view-head">
         <div class="view-eyebrow">The heart of the platform</div>
         <h1 class="view-title">Indicator Explorer <span id="indCountryTag" class="badge accent"></span></h1>
-        <p class="view-desc">Choose a theme, then an indicator. Every chart recomputes instantly from the focus country's microdata against whatever demographic filters you set below.</p>
+        <p class="view-desc">Choose a theme, then an indicator. Every chart recomputes instantly from the selected country's microdata against whatever demographic filters you set below.</p>
       </div>
 
       <div class="toolbar">
@@ -258,7 +260,7 @@
       <div class="view-head">
         <div class="view-eyebrow">Cross-cut everything by who's answering</div>
         <h1 class="view-title">Demographic Intelligence <span id="demoCountryTag" class="badge accent"></span></h1>
-        <p class="view-desc">Build a custom respondent segment using any combination of filters, and see how that segment answers the indicator of your choice compared to the focus country's average.</p>
+        <p class="view-desc">Build a custom respondent segment using any combination of filters, and see how that segment answers the indicator of your choice compared to the selected country's average.</p>
       </div>
 
       <div class="grid cols-2">
@@ -298,7 +300,7 @@
       <div class="view-head">
         <div class="view-eyebrow">Drill from nation → region</div>
         <h1 class="view-title">Regional Intelligence <span id="regionCountryTag" class="badge accent"></span></h1>
-        <p class="view-desc">Regions within the focus country. Select an indicator, then click a region to filter every other module to that region alone.</p>
+        <p class="view-desc">Regions within the selected country. Select an indicator, then click a region to filter every other module to that region alone.</p>
       </div>
 
       <div class="toolbar">
@@ -366,7 +368,7 @@
       </div>
 
       <div class="card mt-16">
-        <h3>Ranked across 39 countries <span class="faint small">(click a bar to set it as focus country)</span></h3>
+        <h3>Ranked across 39 countries <span class="faint small">(click a bar to set it as selected country)</span></h3>
         <div class="chart-box" style="height:900px;"><canvas id="compareRankChart" class="chart-clickable"></canvas></div>
       </div>
 
@@ -376,12 +378,12 @@
       </div>
     </section>
 
-    <!-- ========================= POLICY INSIGHT CENTRE =================== -->
+    <!-- ========================= EVIDENCE INTELLIGENCE =================== -->
     <section class="view" id="view-policy">
       <div class="view-head">
         <div class="view-eyebrow">The differentiator</div>
-        <h1 class="view-title">Policy Insight Centre</h1>
-        <p class="view-desc">Instead of a bare statistic, this module compares subgroups on every indicator in the registry and surfaces gaps wide enough to be policy-relevant. The logic is fixed, transparent rules over the weighted data — <b>not</b> generative text — so every sentence below can be traced back to an exact calculation.</p>
+        <h1 class="view-title">Evidence Intelligence</h1>
+        <p class="view-desc">Instead of a bare statistic, this module compares subgroups on every indicator in the registry and surfaces gaps wide enough to matter — to policymakers, researchers, journalists, civil society, and development partners alike. The logic is fixed, transparent rules over the weighted data — <b>not</b> generative text — so every sentence below can be traced back to an exact calculation.</p>
       </div>
 
       <div class="toolbar">

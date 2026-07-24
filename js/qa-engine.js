@@ -186,7 +186,7 @@ function qaAnswer(queryText, ctx) {
         const rank = rankEntries.findIndex(([k]) => k === cname) + 1;
         return {
           ok: true, mode: "country-single", varKey: topKey, meta,
-          narrative: `In <b>${cname}</b>, <b>${v.pct}%</b> are favourable on “${meta.label}” (n=${v.n}) — ranked #${rank} of ${rankEntries.length} countries. Continental average: <b>${cont.pct}%</b>. Your current focus country, ${focusCountry}, is at <b>${(agg[focusCountry] || {}).pct ?? "—"}%</b>.`,
+          narrative: `In <b>${cname}</b>, <b>${v.pct}%</b> are favourable on “${meta.label}” (n=${v.n}) — ranked #${rank} of ${rankEntries.length} countries. Continental average: <b>${cont.pct}%</b>. Your currently selected country, ${focusCountry}, is at <b>${(agg[focusCountry] || {}).pct ?? "—"}%</b>.`,
           chart: { labels: [cname, focusCountry, "Continental avg."], data: [v.pct, (agg[focusCountry] || {}).pct ?? null, cont.pct], horizontal: false },
           question: meta.question,
           switchCountry: cname,
@@ -195,9 +195,9 @@ function qaAnswer(queryText, ctx) {
     }
   }
 
-  // --- Within-country modes (need the focus country's microdata) ---
+  // --- Within-country modes (need the selected country's microdata) ---
 
-  // Mode: superlative + no explicit region filter -> rank all regions within the focus country
+  // Mode: superlative + no explicit region filter -> rank all regions within the selected country
   if (superlative && !filters.region && scope !== "country" && meta.positive) {
     const groups = groupFavorable(records, topKey, "region");
     const entries = Object.entries(groups).filter(([, v]) => v.pct !== null).sort((a, b) => b[1].pct - a[1].pct);
@@ -259,7 +259,7 @@ function qaSpecialQuestions(ctx) {
   const { records, indicators, groupFavorable, weightedFavorable, focusCountry, aggregates } = ctx;
   const specials = [];
 
-  // 1. Region most satisfied with country direction (within focus country)
+  // 1. Region most satisfied with country direction (within selected country)
   {
     const groups = groupFavorable(records, "Q3", "region");
     const entries = Object.entries(groups).filter(([, v]) => v.pct !== null).sort((a, b) => b[1].pct - a[1].pct);
@@ -272,7 +272,7 @@ function qaSpecialQuestions(ctx) {
     }
   }
 
-  // 2. Least/most trusted institution (within focus country)
+  // 2. Least/most trusted institution (within selected country)
   {
     const trustVars = ["Q37A", "Q37B", "Q37C", "Q37G", "Q37H", "Q37I", "Q37J", "Q37K"];
     const stats = trustVars.map(v => ({ v, label: indicators[v].label.replace("Trust: ", ""), pct: weightedFavorable(records, v).pct })).filter(s => s.pct !== null);
@@ -286,7 +286,7 @@ function qaSpecialQuestions(ctx) {
     }
   }
 
-  // 3. Biggest problem (within focus country)
+  // 3. Biggest problem (within selected country)
   {
     const mip = {};
     let den = 0;
@@ -305,7 +305,7 @@ function qaSpecialQuestions(ctx) {
     }
   }
 
-  // 4. Gender gap on "men have more right to a job" (within focus country)
+  // 4. Gender gap on "men have more right to a job" (within selected country)
   {
     const groups = groupFavorable(records, "Q21A", "gender");
     if (groups["Man"] && groups["Woman"]) {
@@ -318,7 +318,7 @@ function qaSpecialQuestions(ctx) {
     }
   }
 
-  // 5. Generational digital divide (within focus country)
+  // 5. Generational digital divide (within selected country)
   {
     const groups = groupFavorable(records, "Q90I", "age_group");
     const order = ["18-25", "26-35", "36-45", "46-55", "56-65", "66+"];
