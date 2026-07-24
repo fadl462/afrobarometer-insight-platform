@@ -1203,7 +1203,7 @@ function renderAnswerNode(ans) {
     }, 0);
   }
   const btn = wrap.querySelector("[data-open-var]");
-  if (btn) btn.addEventListener("click", () => { goToIndicatorView(btn.dataset.openVar, ans.filters); document.getElementById("assistPanel").classList.remove("open"); });
+  if (btn) btn.addEventListener("click", () => { goToIndicatorView(btn.dataset.openVar, ans.filters); document.getElementById("assistPanel").classList.remove("open"); document.getElementById("assistFab").classList.remove("hide"); });
   const swBtn = wrap.querySelector("[data-switch-country]");
   if (swBtn) swBtn.addEventListener("click", () => refocusCountry(countrySlugFor(swBtn.dataset.switchCountry), "country"));
   return wrap;
@@ -1219,8 +1219,8 @@ const ASSIST_SUGGESTIONS = [
 
 function initAssistant() {
   const fab = document.getElementById("assistFab"), panel = document.getElementById("assistPanel");
-  fab.addEventListener("click", () => panel.classList.toggle("open"));
-  document.getElementById("assistClose").addEventListener("click", () => panel.classList.remove("open"));
+  fab.addEventListener("click", () => { panel.classList.add("open"); fab.classList.add("hide"); });
+  document.getElementById("assistClose").addEventListener("click", () => { panel.classList.remove("open"); fab.classList.remove("hide"); });
   document.getElementById("assistMaximize").addEventListener("click", (e) => {
     panel.classList.toggle("maximized");
     e.currentTarget.textContent = panel.classList.contains("maximized") ? "⤡" : "⤢";
