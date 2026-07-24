@@ -15,7 +15,7 @@
 
   <!-- ============================= SIDEBAR ============================= -->
   <aside class="sidebar" id="sidebar">
-    <div class="brand">
+    <div class="brand" id="brandHome" role="button" aria-label="Go to Executive Briefing" tabindex="0">
       <img src="assets/afrobarometer-logo.png" alt="Afrobarometer">
       <div>
         <div class="brand-name">Insight Platform</div>
@@ -500,7 +500,10 @@
       <div class="ah-title">Ask the data</div>
       <div class="ah-sub">Fixed-rule query engine · 39-country R9 microdata</div>
     </div>
-    <button id="assistClose" aria-label="Close">✕</button>
+    <div class="ah-actions">
+      <button id="assistMaximize" aria-label="Expand">⤢</button>
+      <button id="assistClose" aria-label="Close">✕</button>
+    </div>
   </div>
   <div class="assist-suggest-row" id="assistSuggestRow"></div>
   <div class="assist-body" id="assistBody"></div>

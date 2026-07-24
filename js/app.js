@@ -209,6 +209,9 @@ function initNav() {
   document.getElementById("hamburger").addEventListener("click", () => {
     document.getElementById("sidebar").classList.toggle("open");
   });
+  const brand = document.getElementById("brandHome");
+  brand.addEventListener("click", () => switchView("executive"));
+  brand.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); switchView("executive"); } });
 }
 
 /** Jump to Indicator Explorer with a specific indicator (and optional filters) preselected, in the current selected country. */
@@ -1218,6 +1221,11 @@ function initAssistant() {
   const fab = document.getElementById("assistFab"), panel = document.getElementById("assistPanel");
   fab.addEventListener("click", () => panel.classList.toggle("open"));
   document.getElementById("assistClose").addEventListener("click", () => panel.classList.remove("open"));
+  document.getElementById("assistMaximize").addEventListener("click", (e) => {
+    panel.classList.toggle("maximized");
+    e.currentTarget.textContent = panel.classList.contains("maximized") ? "⤡" : "⤢";
+    e.currentTarget.setAttribute("aria-label", panel.classList.contains("maximized") ? "Collapse" : "Expand");
+  });
 
   document.getElementById("assistSuggestRow").innerHTML = ASSIST_SUGGESTIONS.slice(0, 3).map(s => `<span class="pill">${s}</span>`).join("");
   document.querySelectorAll("#assistSuggestRow .pill").forEach(p => p.addEventListener("click", () => runAssistantQuery(p.textContent)));
