@@ -32,6 +32,7 @@
     <nav class="main-nav" id="mainNav">
       <div class="nav-group-label">Overview</div>
       <button class="nav-item active" data-view="executive"><span class="dot"></span>Executive Briefing</button>
+      <button class="nav-item" data-view="africa"><span class="dot"></span>Africa Overview</button>
       <button class="nav-item" data-view="country"><span class="dot"></span>Country Intelligence</button>
 
       <div class="nav-group-label">Explore</div>
@@ -97,6 +98,46 @@
         <div class="card">
           <h3>Trust in institutions — continental average <span class="faint small">(click a bar to explore)</span></h3>
           <div class="chart-box"><canvas id="execTrustChart" class="chart-clickable"></canvas></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================= AFRICA OVERVIEW ========================= -->
+    <section class="view" id="view-africa">
+      <div class="view-head">
+        <div class="view-eyebrow">The continent, at a glance</div>
+        <h1 class="view-title">Africa Overview</h1>
+        <p class="view-desc">Every country Afrobarometer surveys, shaded by the indicator of your choice. Grey countries were not part of Afrobarometer Round 9. Click any surveyed country to make it your focus country for deep-dive exploration.</p>
+      </div>
+
+      <div class="toolbar">
+        <div class="select-field">
+          <label>Theme</label>
+          <select id="africaThemeSelect"></select>
+        </div>
+        <div class="select-field" style="min-width:320px;">
+          <label>Indicator</label>
+          <select id="africaIndicatorSelect"></select>
+        </div>
+      </div>
+
+      <div class="grid cols-2">
+        <div class="map-card">
+          <div class="africa-map-wrap" id="africaMapWrap"></div>
+          <div class="map-legend">
+            <div class="map-legend-row">
+              <div class="scale-bar"></div>
+              <div class="scale-labels"><span id="mapLegendMin">0%</span><span id="mapLegendMax">100%</span></div>
+            </div>
+          </div>
+          <div class="small faint mt-8"><span class="swatch-muted" style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--paper-deep);margin-right:5px;"></span>Not surveyed in Round 9</div>
+          <div class="africa-attribution">Map: Al MacDonald (original), Fritz Lekschas (editor) — CC BY-SA 3.0</div>
+        </div>
+        <div class="card">
+          <h3 id="africaQTitle">—</h3>
+          <p class="small muted" id="africaQWording"></p>
+          <div class="hr"></div>
+          <div class="rank-list" id="africaRankList"></div>
         </div>
       </div>
     </section>

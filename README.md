@@ -44,6 +44,12 @@ cross-country reporting convention).
   feed, the top problems citizens name across all 39 countries, a country
   ranking on "direction of the country" (click a bar to make that country
   your focus country), and continental trust averages.
+- **Africa Overview** — a real, geographically accurate choropleth map of
+  the continent (`assets/africa-map.svg`, cropped from a CC BY-SA world map
+  and cross-checked so all 39 surveyed countries' names match the dataset
+  exactly). Pick any indicator and every surveyed country is shaded by its
+  value on a continuous colour scale; unsurveyed countries are muted grey.
+  Hover for the exact figure, click to make that country your focus.
 - **Country Intelligence Centre** — deep profile of the focus country:
   sample composition, a chart benchmarking it against the continental
   average on headline indicators, and its numeric rank out of 39 countries
@@ -94,6 +100,10 @@ cross-country reporting convention).
 - Demographic fields reuse Afrobarometer's own pre-cleaned derived columns
   where available (`AGE_v1`, `EDUC_COND`, `RELIG_COND`, `LivedPoverty` /
   `LivedPoverty_CAT`) rather than re-deriving them.
+- **Independently re-validated** against a second export of the same
+  dataset (an .xlsx version): row count (53,444), column count (421), and
+  the exact respondent count for all 39 countries were confirmed to match
+  the `.sav`-derived pipeline with zero discrepancies.
 - `etl.py` is the one-time transform from the raw `.sav` export into
   `data/{meta,indicators,continental,country_aggregates}.json` and
   `data/countries/*.json`. It is included for transparency/reproducibility

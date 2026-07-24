@@ -51,6 +51,7 @@ async function boot() {
   initTheme();
   renderExecutive();
   initCompareCountries();
+  await initAfricaOverview();
 
   await loadCountry(DEFAULT_COUNTRY_SLUG);
 
@@ -83,6 +84,7 @@ async function setFocusCountry(slug) {
   renderRegional();
   renderPolicy();
   updateCountryTags();
+  if (document.getElementById("africaIndicatorSelect").value) renderAfricaMap();
 }
 
 function updateCountryTags() {
@@ -138,7 +140,7 @@ function countrySlugFor(name) {
 // Navigation
 // ---------------------------------------------------------------------------
 const VIEW_TITLES = {
-  executive: "Executive Briefing", country: "Country Intelligence Centre",
+  executive: "Executive Briefing", africa: "Africa Overview", country: "Country Intelligence Centre",
   indicator: "Indicator Explorer", demographic: "Demographic Intelligence",
   regional: "Regional Intelligence", compare: "Compare Countries",
   policy: "Policy Insight Centre", qa: "Ask the Data", methodology: "Methodology & Downloads",
@@ -397,6 +399,105 @@ function renderExecutive() {
   const trustLabels = trustVars.map(v => APP.indicators[v].label.replace("Trust: ", ""));
   const trustVals = trustVars.map(v => (APP.aggregates[v] && APP.aggregates[v].__continental__.pct));
   makeChart("execTrustChart", barConfig(trustLabels, trustVals, { horizontal: true, colors: PALETTE[1], thick: 16, onClick: (i) => goToIndicatorView(trustVars[i]) }));
+}
+
+// ---------------------------------------------------------------------------
+// AFRICA OVERVIEW (interactive choropleth, from precomputed aggregates)
+// ---------------------------------------------------------------------------
+function lerpColor(hexA, hexB, t) {
+  const a = [1, 3, 5].map(i => parseInt(hexA.slice(i, i + 2), 16));
+  const b = [1, 3, 5].map(i => parseInt(hexB.slice(i, i + 2), 16));
+  const c = a.map((v, i) => Math.round(v + (b[i] - v) * t));
+  return "#" + c.map(v => v.toString(16).padStart(2, "0")).join("");
+}
+function mapColorScale(t) {
+  // three-stop scale: soft peach -> Afrobarometer orange -> deep brick, matching the legend gradient
+  if (t < 0.5) return lerpColor("#FDE4DA", "#F25528", t / 0.5);
+  return lerpColor("#F25528", "#8A2A0E", (t - 0.5) / 0.5);
+}
+
+async function initAfricaOverview() {
+  const svgText = await fetch("assets/africa-map.svg").then(r => r.text());
+  document.getElementById("africaMapWrap").innerHTML = svgText;
+  document.querySelectorAll("#africaMapWrap title").forEach(t => t.remove());
+
+  const themeSel = document.getElementById("africaThemeSelect");
+  const themesWithAgg = [...new Set(Object.entries(APP.indicators).filter(([k]) => APP.aggregates[k]).map(([, v]) => v.theme))];
+  themeSel.innerHTML = themesWithAgg.map(t => `<option value="${t}">${t}</option>`).join("");
+  themeSel.value = "Democracy";
+  themeSel.addEventListener("change", populateAfricaIndicatorSelect);
+  document.getElementById("africaIndicatorSelect").addEventListener("change", renderAfricaMap);
+
+  const tooltip = document.createElement("div");
+  tooltip.className = "map-tooltip";
+  tooltip.id = "mapTooltip";
+  document.body.appendChild(tooltip);
+
+  populateAfricaIndicatorSelect();
+}
+
+function populateAfricaIndicatorSelect() {
+  const theme = document.getElementById("africaThemeSelect").value;
+  const sel = document.getElementById("africaIndicatorSelect");
+  const opts = Object.entries(APP.indicators).filter(([k, v]) => v.theme === theme && APP.aggregates[k]);
+  sel.innerHTML = opts.map(([k, v]) => `<option value="${k}">${v.label}</option>`).join("");
+  if (opts.some(([k]) => k === "Q23") && theme === "Democracy") sel.value = "Q23";
+  renderAfricaMap();
+}
+
+function renderAfricaMap() {
+  const varKey = document.getElementById("africaIndicatorSelect").value;
+  if (!varKey) return;
+  const meta = APP.indicators[varKey];
+  document.getElementById("africaQTitle").textContent = meta.label;
+  document.getElementById("africaQWording").textContent = "“" + meta.question + "”";
+
+  const agg = APP.aggregates[varKey];
+  const entries = Object.entries(agg).filter(([k, v]) => k !== "__continental__" && v.pct !== null);
+  const vals = entries.map(([, v]) => v.pct);
+  const min = Math.min(...vals), max = Math.max(...vals);
+  document.getElementById("mapLegendMin").textContent = min.toFixed(0) + "%";
+  document.getElementById("mapLegendMax").textContent = max.toFixed(0) + "%";
+
+  const byName = Object.fromEntries(entries);
+  const tooltip = document.getElementById("mapTooltip");
+
+  document.querySelectorAll("#africaMapWrap .country").forEach(path => {
+    const name = path.dataset.name;
+    path.classList.toggle("is-focus", name === APP.countryName);
+    if (path.classList.contains("not-surveyed")) return;
+    const v = byName[name];
+    if (!v || v.pct === null) { path.style.fill = "var(--paper-deep)"; return; }
+    const t = max > min ? (v.pct - min) / (max - min) : 0.5;
+    path.style.fill = mapColorScale(t);
+
+    path.onmousemove = (e) => {
+      tooltip.style.display = "block";
+      tooltip.style.left = (e.clientX + 14) + "px";
+      tooltip.style.top = (e.clientY + 14) + "px";
+      tooltip.innerHTML = `<b>${name}</b><br>${v.pct}% favourable (n=${v.n})`;
+    };
+    path.onmouseleave = () => { tooltip.style.display = "none"; };
+    path.onclick = () => {
+      const slug = countrySlugFor(name);
+      if (slug) setFocusCountry(slug);
+    };
+  });
+
+  const ranked = entries.sort((a, b) => b[1].pct - a[1].pct);
+  const rmax = Math.max(...ranked.map(([, v]) => v.pct), 1);
+  document.getElementById("africaRankList").innerHTML = ranked.map(([k, v]) => `
+    <div class="rank-row clickable" data-country-row="${k}">
+      <div class="rank-name">${k}</div>
+      <div class="rank-track"><div class="rank-fill" style="width:${(v.pct / rmax) * 100}%"></div></div>
+      <div class="rank-val">${v.pct}%</div>
+    </div>`).join("");
+  document.querySelectorAll("#africaRankList [data-country-row]").forEach(el => {
+    el.addEventListener("click", () => {
+      const slug = countrySlugFor(el.dataset.countryRow);
+      if (slug) setFocusCountry(slug);
+    });
+  });
 }
 
 // ---------------------------------------------------------------------------

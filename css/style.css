@@ -428,3 +428,30 @@ table.sortable th.sorted .sort-arrow{opacity:1;color:var(--accent);}
   .assist-panel{right:12px;left:12px;width:auto;bottom:86px;}
   .assist-fab{right:16px;bottom:16px;}
 }
+
+/* =========================================================================
+   Africa Overview — interactive choropleth map
+   ========================================================================= */
+.map-card{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow);}
+.africa-map-wrap{position:relative;max-width:640px;margin:0 auto;}
+.africa-map-wrap svg{width:100%;height:auto;display:block;}
+.africa-map-wrap .country{stroke:var(--paper);stroke-width:0.6;transition:fill .2s ease, opacity .15s ease, stroke-width .15s ease;}
+.africa-map-wrap .country.surveyed{cursor:pointer;}
+.africa-map-wrap .country.surveyed:hover{stroke:var(--ink);stroke-width:1.4;}
+.africa-map-wrap .country.not-surveyed{fill:var(--paper-deep) !important;opacity:.55;cursor:default;}
+.africa-map-wrap .country.is-focus{stroke:var(--ink);stroke-width:1.8;}
+
+.map-tooltip{
+  position:fixed;pointer-events:none;z-index:500;display:none;
+  background:var(--ink);color:var(--paper);padding:8px 12px;border-radius:8px;
+  font-size:12px;line-height:1.5;box-shadow:var(--shadow);max-width:220px;
+}
+.map-tooltip b{font-family:var(--font-mono);}
+
+.map-legend{display:flex;align-items:center;gap:10px;margin-top:16px;font-size:11.5px;color:var(--ink-soft);}
+.map-legend .scale-bar{flex:1;height:11px;border-radius:6px;background:linear-gradient(90deg,#FDE4DA,#F25528,#8A2A0E);}
+.map-legend .scale-labels{display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:10.5px;color:var(--ink-faint);margin-top:4px;}
+.map-legend-row{display:flex;flex-direction:column;flex:1;}
+.map-legend .swatch-muted{width:12px;height:12px;border-radius:3px;background:var(--paper-deep);display:inline-block;margin-right:5px;}
+
+.africa-attribution{font-size:10px;color:var(--ink-faint);text-align:center;margin-top:10px;}
